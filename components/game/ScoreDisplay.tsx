@@ -26,14 +26,18 @@ export function ScoreDisplay({
   multiplierScale,
   multiplierGlow,
 }: ScoreDisplayProps) {
-  const scoreAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { scale: scoreScale?.value ?? 1 },
-      { translateY: scoreBump?.value ?? 0 },
-    ],
-  }));
+  const scoreAnimatedStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      transform: [
+        { scale: scoreScale?.value ?? 1 },
+        { translateY: scoreBump?.value ?? 0 },
+      ],
+    };
+  });
 
   const multiplierAnimatedStyle = useAnimatedStyle(() => {
+    'worklet';
     const glowValue = multiplierGlow?.value ?? 0;
     const shadowOpacity = glowValue * 0.8;
 

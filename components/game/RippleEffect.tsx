@@ -37,10 +37,13 @@ export function RippleEffect({ trigger, size, color = '#FFFFFF' }: RippleEffectP
     }
   }, [trigger, scale, opacity]);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-    opacity: opacity.value,
-  }));
+  const animatedStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      transform: [{ scale: scale.value }],
+      opacity: opacity.value,
+    };
+  });
 
   return (
     <Animated.View

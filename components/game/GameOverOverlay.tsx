@@ -110,33 +110,51 @@ export function GameOverOverlay({
     buttonOpacity.value = withDelay(1700, withTiming(1, { duration: 200 }));
   }, []);
 
-  const backdropStyle = useAnimatedStyle(() => ({
-    opacity: backdropOpacity.value,
-  }));
+  const backdropStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      opacity: backdropOpacity.value,
+    };
+  });
 
-  const titleStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: titleY.value }],
-    opacity: titleOpacity.value,
-  }));
+  const titleStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      transform: [{ translateY: titleY.value }],
+      opacity: titleOpacity.value,
+    };
+  });
 
-  const scoreStyle = useAnimatedStyle(() => ({
-    opacity: scoreProgress.value > 0 ? 1 : 0,
-  }));
+  const scoreStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      opacity: scoreProgress.value > 0 ? 1 : 0,
+    };
+  });
 
-  const highScoreBadgeStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: highScoreBadgeScale.value }],
-    opacity: highScoreBadgeScale.value,
-  }));
+  const highScoreBadgeStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      transform: [{ scale: highScoreBadgeScale.value }],
+      opacity: highScoreBadgeScale.value,
+    };
+  });
 
-  const coinsStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: coinsY.value }],
-    opacity: coinsOpacity.value,
-  }));
+  const coinsStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      transform: [{ translateY: coinsY.value }],
+      opacity: coinsOpacity.value,
+    };
+  });
 
-  const buttonStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: buttonScale.value * buttonPressScale.value }],
-    opacity: buttonOpacity.value,
-  }));
+  const buttonStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      transform: [{ scale: buttonScale.value * buttonPressScale.value }],
+      opacity: buttonOpacity.value,
+    };
+  });
 
   const handlePressIn = () => {
     buttonPressScale.value = withSpring(0.95, { damping: 15, stiffness: 300 });

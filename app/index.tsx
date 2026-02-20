@@ -49,15 +49,21 @@ export default function HomeScreen() {
     );
   }, []);
 
-  const titleGlowStyle = useAnimatedStyle(() => ({
-    textShadowRadius: 20 + titleGlow.value * 15,
-    opacity: 0.8 + titleGlow.value * 0.2,
-  }));
+  const titleGlowStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      textShadowRadius: 20 + titleGlow.value * 15,
+      opacity: 0.8 + titleGlow.value * 0.2,
+    };
+  });
 
-  const buttonGlowStyle = useAnimatedStyle(() => ({
-    shadowOpacity: buttonGlow.value,
-    transform: [{ scale: buttonScale.value }],
-  }));
+  const buttonGlowStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      shadowOpacity: buttonGlow.value,
+      transform: [{ scale: buttonScale.value }],
+    };
+  });
 
   const handlePressIn = () => {
     buttonScale.value = withSpring(0.95, { damping: 15, stiffness: 300 });

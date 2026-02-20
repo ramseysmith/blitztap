@@ -147,10 +147,6 @@ export default function GameScreen() {
     }
   }, [state.options, feedback, animations, handleTap, isTimedOut]);
 
-  // Handle timer warning
-  const onTimerWarning = useCallback((intensity: number) => {
-    animations.animateTimerWarning(intensity);
-  }, [animations]);
 
   // Handle play again
   const onPlayAgain = useCallback(() => {
@@ -166,10 +162,7 @@ export default function GameScreen() {
         return (
           <ScreenShakeContainer shakeX={animations.screenShakeX}>
             <View style={styles.gameContainer}>
-              <TimerBar
-                timeProgress={timeProgress}
-                onTimerWarning={onTimerWarning}
-              />
+              <TimerBar timeProgress={timeProgress} />
 
               <ScoreDisplay
                 score={state.score}

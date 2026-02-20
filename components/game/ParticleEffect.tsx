@@ -66,14 +66,17 @@ function Particle({ index, color, angle, distance, delay, triggerAnimation }: Pa
     }
   }, [triggerAnimation, angle, distance, delay, translateX, translateY, scale, opacity]);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: translateX.value },
-      { translateY: translateY.value },
-      { scale: scale.value },
-    ],
-    opacity: opacity.value,
-  }));
+  const animatedStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      transform: [
+        { translateX: translateX.value },
+        { translateY: translateY.value },
+        { scale: scale.value },
+      ],
+      opacity: opacity.value,
+    };
+  });
 
   return (
     <Animated.View

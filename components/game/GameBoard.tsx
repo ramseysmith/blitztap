@@ -134,6 +134,7 @@ function GridOption({
   }, [disabled, onTap, option.id]);
 
   const containerStyle = useAnimatedStyle(() => {
+    'worklet';
     const dimOpacity = gridDimOpacity?.value ?? 1;
     return {
       transform: [
@@ -144,14 +145,20 @@ function GridOption({
     };
   });
 
-  const flashStyle = useAnimatedStyle(() => ({
-    opacity: flashOpacity.value,
-    backgroundColor: flashColor.value === 0 ? '#FFFFFF' : Colors.error,
-  }));
+  const flashStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      opacity: flashOpacity.value,
+      backgroundColor: flashColor.value === 0 ? '#FFFFFF' : Colors.error,
+    };
+  });
 
-  const glowStyle = useAnimatedStyle(() => ({
-    opacity: glowOpacity.value,
-  }));
+  const glowStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      opacity: glowOpacity.value,
+    };
+  });
 
   return (
     <AnimatedPressable

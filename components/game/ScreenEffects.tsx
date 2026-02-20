@@ -16,6 +16,7 @@ interface ScreenGlowProps {
 
 export function ScreenGlow({ opacity, colorValue }: ScreenGlowProps) {
   const animatedStyle = useAnimatedStyle(() => {
+    'worklet';
     const color = interpolateColor(
       colorValue.value,
       [0, 1],
@@ -43,9 +44,12 @@ interface ScreenShakeContainerProps {
 }
 
 export function ScreenShakeContainer({ shakeX, children }: ScreenShakeContainerProps) {
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: shakeX.value }],
-  }));
+  const animatedStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      transform: [{ translateX: shakeX.value }],
+    };
+  });
 
   return (
     <Animated.View style={[styles.shakeContainer, animatedStyle]}>

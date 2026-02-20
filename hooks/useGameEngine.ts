@@ -14,10 +14,28 @@ interface UseGameEngineOptions {
 export function useGameEngine(options?: UseGameEngineOptions) {
   const { state, dispatch } = useGame();
 
+  // Use refs for values needed in the timer loop to avoid recreating callbacks
   const startTimeRef = useRef<number>(0);
   const timerRef = useRef<number | null>(null);
   const timeoutHandledRef = useRef(false);
+  const timePerTapRef = useRef(state.timePerTap);
+  const statusRef = useRef(state.status);
+  const stateRef = useRef(state);
+  const onTimeoutRef = useRef(options?.onTimeout);
+
   const timeProgress = useSharedValue(1);
+
+  // Keep onTimeout ref in sync
+  useEffect(() => {
+    onTimeoutRef.current = options?.onTimeout;
+  }, [options?.onTimeout]);
+
+  // Keep refs in sync with state
+  useEffect(() => {
+    timePerTapRef.current = state.timePerTap;
+    statusRef.current = state.status;
+    stateRef.current = state;
+  }, [state]);
 
   // Clean up timer on unmount
   useEffect(() => {
@@ -28,22 +46,29 @@ export function useGameEngine(options?: UseGameEngineOptions) {
     };
   }, []);
 
-  // Handle game over (timeout) - now with delay for animation
+  // Handle game over (timeout)
   const handleTimeout = useCallback(async () => {
-    if (state.status !== 'playing' || timeoutHandledRef.current) return;
+    if (statusRef.current !== 'playing' || timeoutHandledRef.current) return;
     timeoutHandledRef.current = true;
 
+    // Cancel timer
+    if (timerRef.current) {
+      cancelAnimationFrame(timerRef.current);
+      timerRef.current = null;
+    }
+
     // Notify caller about timeout (for animations)
-    options?.onTimeout?.();
+    onTimeoutRef.current?.();
 
     // Delay the actual game over to allow for correct reveal animation
     await new Promise(resolve => setTimeout(resolve, 1100));
 
-    const isNewHighScore = state.score > state.highScore;
-    const roundCoins = calculateRoundCoins(state.score, state.maxStreak, isNewHighScore);
+    const currentState = stateRef.current;
+    const isNewHighScore = currentState.score > currentState.highScore;
+    const roundCoins = calculateRoundCoins(currentState.score, currentState.maxStreak, isNewHighScore);
 
     if (isNewHighScore) {
-      await setHighScore(state.score);
+      await setHighScore(currentState.score);
     }
 
     const newTotalCoins = await addCoins(roundCoins);
@@ -56,40 +81,66 @@ export function useGameEngine(options?: UseGameEngineOptions) {
       type: 'UPDATE_COINS',
       payload: { totalCoins: newTotalCoins },
     });
-  }, [state.status, state.score, state.highScore, state.maxStreak, dispatch, options]);
+  }, [dispatch]);
+
+  // Store handleTimeout in a ref to avoid recreating updateTimer
+  const handleTimeoutRef = useRef(handleTimeout);
+  useEffect(() => {
+    handleTimeoutRef.current = handleTimeout;
+  }, [handleTimeout]);
 
   // Timer loop using requestAnimationFrame for precision
   const updateTimer = useCallback(() => {
-    if (state.status !== 'playing') return;
+    if (statusRef.current !== 'playing') return;
 
     const elapsed = Date.now() - startTimeRef.current;
-    const remaining = state.timePerTap - elapsed;
+    const timePerTap = timePerTapRef.current;
+    const remaining = timePerTap - elapsed;
 
     if (remaining <= 0) {
       timeProgress.value = 0;
-      handleTimeout();
+      handleTimeoutRef.current();
       return;
     }
 
-    timeProgress.value = remaining / state.timePerTap;
-    dispatch({ type: 'UPDATE_TIME', payload: { timeRemaining: remaining } });
+    timeProgress.value = remaining / timePerTap;
     timerRef.current = requestAnimationFrame(updateTimer);
-  }, [state.status, state.timePerTap, handleTimeout, dispatch, timeProgress]);
+  }, [timeProgress]);
 
-  // Start the timer when game starts playing
+  // Start the timer
+  const startTimer = useCallback(() => {
+    // Cancel any existing timer
+    if (timerRef.current) {
+      cancelAnimationFrame(timerRef.current);
+    }
+
+    startTimeRef.current = Date.now();
+    timeProgress.value = 1;
+    timerRef.current = requestAnimationFrame(updateTimer);
+  }, [updateTimer, timeProgress]);
+
+  // Store startTimer in a ref to avoid effect re-running
+  const startTimerRef = useRef(startTimer);
   useEffect(() => {
-    if (state.status === 'playing') {
-      startTimeRef.current = Date.now();
-      timeoutHandledRef.current = false;
-      timeProgress.value = 1;
-      timerRef.current = requestAnimationFrame(updateTimer);
+    startTimerRef.current = startTimer;
+  }, [startTimer]);
+
+  // Start/stop timer based on game status
+  useEffect(() => {
+    if (state.status === 'playing' && state.target) {
+      // Don't restart timer if we're handling a timeout (waiting for game over)
+      if (!timeoutHandledRef.current) {
+        startTimerRef.current();
+      }
     } else {
       if (timerRef.current) {
         cancelAnimationFrame(timerRef.current);
         timerRef.current = null;
       }
+      // Reset the timeout flag when not playing (for next game)
+      timeoutHandledRef.current = false;
     }
-  }, [state.status, state.target, updateTimer, timeProgress]);
+  }, [state.status, state.target?.id]);
 
   // Start game (called after countdown)
   const startGame = useCallback(() => {
@@ -111,11 +162,12 @@ export function useGameEngine(options?: UseGameEngineOptions) {
     dispatch({ type: 'START_COUNTDOWN' });
   }, [dispatch]);
 
-  // Handle tap on an option (game logic only, animations handled by caller)
+  // Handle tap on an option
   const handleTap = useCallback(async (optionId: string) => {
-    if (state.status !== 'playing') return;
+    const currentState = stateRef.current;
+    if (currentState.status !== 'playing') return;
 
-    const tappedOption = state.options.find(opt => opt.id === optionId);
+    const tappedOption = currentState.options.find(opt => opt.id === optionId);
     if (!tappedOption) return;
 
     // Cancel current timer
@@ -126,8 +178,8 @@ export function useGameEngine(options?: UseGameEngineOptions) {
 
     if (tappedOption.isCorrect) {
       // Correct tap!
-      const newScore = state.score + 1;
-      const newStreak = state.streak + 1;
+      const newScore = currentState.score + 1;
+      const newStreak = currentState.streak + 1;
       const newMultiplier = calculateMultiplier(newStreak);
       const round = generateRound(newScore);
 
@@ -143,17 +195,14 @@ export function useGameEngine(options?: UseGameEngineOptions) {
         },
       });
 
-      // Reset timer for new round
-      startTimeRef.current = Date.now();
-      timeoutHandledRef.current = false;
-      timeProgress.value = 1;
+      // Timer will restart via useEffect when target changes
     } else {
-      // Wrong tap - game over (called after animation delay from game.tsx)
-      const isNewHighScore = state.score > state.highScore;
-      const roundCoins = calculateRoundCoins(state.score, state.maxStreak, isNewHighScore);
+      // Wrong tap - game over
+      const isNewHighScore = currentState.score > currentState.highScore;
+      const roundCoins = calculateRoundCoins(currentState.score, currentState.maxStreak, isNewHighScore);
 
       if (isNewHighScore) {
-        await setHighScore(state.score);
+        await setHighScore(currentState.score);
       }
 
       const newTotalCoins = await addCoins(roundCoins);
@@ -167,18 +216,23 @@ export function useGameEngine(options?: UseGameEngineOptions) {
         payload: { totalCoins: newTotalCoins },
       });
     }
-  }, [state, dispatch, timeProgress]);
+  }, [dispatch]);
 
   // Reset game
   const resetGame = useCallback(() => {
     timeoutHandledRef.current = false;
+    if (timerRef.current) {
+      cancelAnimationFrame(timerRef.current);
+      timerRef.current = null;
+    }
+    // Reset timer progress to full so it doesn't flicker when game restarts
+    timeProgress.value = 1;
     dispatch({ type: 'RESET_GAME' });
-  }, [dispatch]);
+  }, [dispatch, timeProgress]);
 
   // Play again (reset and start countdown)
   const playAgain = useCallback(() => {
     resetGame();
-    // Small delay to ensure state is reset before starting countdown
     setTimeout(() => {
       startCountdown();
     }, 50);

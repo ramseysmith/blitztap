@@ -74,10 +74,13 @@ export function CountdownReady({ onComplete }: CountdownReadyProps) {
     }
   }, [count]);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-    opacity: opacity.value,
-  }));
+  const animatedStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      transform: [{ scale: scale.value }],
+      opacity: opacity.value,
+    };
+  });
 
   const currentColor = COUNT_COLORS[count as keyof typeof COUNT_COLORS] || Colors.accent;
   const displayText = count > 0 ? count.toString() : 'GO!';

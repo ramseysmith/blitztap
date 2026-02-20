@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import Animated, {
   useAnimatedStyle,
@@ -9,12 +9,12 @@ import Animated, {
   withTiming,
   withSequence,
   cancelAnimation,
+  useAnimatedReaction,
 } from 'react-native-reanimated';
 import { Colors } from '../../utils/colors';
 
 interface TimerBarProps {
   timeProgress: SharedValue<number>;
-  onTimerWarning?: (intensity: number) => void;
 }
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -22,13 +22,21 @@ const BAR_HEIGHT = 10;
 const BAR_MARGIN = 20;
 const BAR_WIDTH = SCREEN_WIDTH - BAR_MARGIN * 2;
 
-export function TimerBar({ timeProgress, onTimerWarning }: TimerBarProps) {
+export function TimerBar({ timeProgress }: TimerBarProps) {
   const pulseOpacity = useSharedValue(1);
+  const isPulsing = useSharedValue(false);
 
-  // Pulse animation when time is low
-  useEffect(() => {
-    const checkPulse = () => {
-      if (timeProgress.value < 0.25 && timeProgress.value > 0) {
+  // React to time progress changes on the UI thread
+  useAnimatedReaction(
+    () => timeProgress.value,
+    (current, previous) => {
+      'worklet';
+      const shouldPulse = current < 0.25 && current > 0;
+      const wasPulsing = isPulsing.value;
+
+      if (shouldPulse && !wasPulsing) {
+        // Start pulsing
+        isPulsing.value = true;
         pulseOpacity.value = withRepeat(
           withSequence(
             withTiming(0.6, { duration: 150 }),
@@ -37,17 +45,18 @@ export function TimerBar({ timeProgress, onTimerWarning }: TimerBarProps) {
           -1,
           true
         );
-      } else {
+      } else if (!shouldPulse && wasPulsing) {
+        // Stop pulsing
+        isPulsing.value = false;
         cancelAnimation(pulseOpacity);
         pulseOpacity.value = 1;
       }
-    };
-
-    const interval = setInterval(checkPulse, 100);
-    return () => clearInterval(interval);
-  }, [timeProgress, pulseOpacity]);
+    },
+    [timeProgress]
+  );
 
   const barStyle = useAnimatedStyle(() => {
+    'worklet';
     const width = Math.max(0, timeProgress.value * BAR_WIDTH);
     const backgroundColor = interpolateColor(
       timeProgress.value,
@@ -55,21 +64,15 @@ export function TimerBar({ timeProgress, onTimerWarning }: TimerBarProps) {
       [Colors.error, Colors.error, Colors.warning, Colors.success]
     );
 
-    // Report warning intensity
-    if (timeProgress.value < 0.25 && timeProgress.value > 0 && onTimerWarning) {
-      const intensity = 1 - timeProgress.value / 0.25;
-      onTimerWarning(intensity);
-    }
-
     return {
       width,
       backgroundColor,
       opacity: pulseOpacity.value,
-      shadowColor: backgroundColor,
     };
   });
 
   const trackStyle = useAnimatedStyle(() => {
+    'worklet';
     const glowColor = interpolateColor(
       timeProgress.value,
       [0, 0.25, 0.5, 1],

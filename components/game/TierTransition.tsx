@@ -13,10 +13,13 @@ interface TierTransitionProps {
 }
 
 export function TierTransition({ scale, opacity, text, color }: TierTransitionProps) {
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-    opacity: opacity.value,
-  }));
+  const animatedStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      transform: [{ scale: scale.value }],
+      opacity: opacity.value,
+    };
+  });
 
   if (!text) return null;
 
