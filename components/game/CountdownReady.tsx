@@ -1,66 +1,109 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
+  withSpring,
   withTiming,
   withSequence,
+  withDelay,
   Easing,
+  runOnJS,
 } from 'react-native-reanimated';
 import { Colors } from '../../utils/colors';
 import { useHaptics } from '../../hooks/useHaptics';
+import { SPRING_BOUNCY } from '../../hooks/useGameAnimations';
 
 interface CountdownReadyProps {
   onComplete: () => void;
 }
 
+const COUNT_COLORS = {
+  3: '#4488FF',  // Blue
+  2: '#FFDD44',  // Yellow
+  1: '#FF3366',  // Red
+  0: Colors.success, // Green for GO!
+};
+
 export function CountdownReady({ onComplete }: CountdownReadyProps) {
   const [count, setCount] = useState(3);
-  const scale = useSharedValue(1);
-  const opacity = useSharedValue(1);
+  const scale = useSharedValue(2);
+  const opacity = useSharedValue(0);
   const haptics = useHaptics();
 
   useEffect(() => {
-    // Animate and haptic for each count
-    const animate = () => {
-      scale.value = 0.5;
-      opacity.value = 0;
-      scale.value = withSequence(
-        withTiming(1.2, { duration: 200, easing: Easing.out(Easing.back) }),
-        withTiming(1, { duration: 100 })
-      );
-      opacity.value = withTiming(1, { duration: 200 });
-      haptics.countdown();
-    };
+    // Reset animation values
+    scale.value = 2;
+    opacity.value = 0;
 
-    animate();
+    // Animate in with spring
+    scale.value = withSpring(1, SPRING_BOUNCY);
+    opacity.value = withTiming(1, { duration: 200 });
+
+    // Haptic feedback
+    haptics.countdown();
 
     if (count > 0) {
+      // Hold then fade out
       const timer = setTimeout(() => {
-        setCount(count - 1);
-      }, 1000);
+        scale.value = withTiming(0.5, { duration: 200 });
+        opacity.value = withTiming(0, { duration: 200 });
+
+        setTimeout(() => {
+          setCount(count - 1);
+        }, 200);
+      }, 700);
+
       return () => clearTimeout(timer);
     } else {
-      // Count reached 0, trigger game start after showing "GO!"
+      // GO! - special animation
+      scale.value = 0.5;
+      scale.value = withSequence(
+        withSpring(1.2, { damping: 8, stiffness: 200 }),
+        withSpring(1, SPRING_BOUNCY)
+      );
+
+      // Trigger game start after GO! animation
       const timer = setTimeout(() => {
-        onComplete();
+        opacity.value = withTiming(0, { duration: 200 });
+        setTimeout(onComplete, 200);
       }, 500);
+
       return () => clearTimeout(timer);
     }
-  }, [count, onComplete, scale, opacity, haptics]);
+  }, [count]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
     opacity: opacity.value,
   }));
 
+  const currentColor = COUNT_COLORS[count as keyof typeof COUNT_COLORS] || Colors.accent;
+  const displayText = count > 0 ? count.toString() : 'GO!';
+
   return (
     <View style={styles.container}>
-      <Animated.View style={animatedStyle}>
-        <Text style={styles.countText}>
-          {count > 0 ? count : 'GO!'}
-        </Text>
+      <Animated.View style={[styles.textContainer, animatedStyle]}>
+        <Animated.Text
+          style={[
+            styles.countText,
+            {
+              color: currentColor,
+              textShadowColor: currentColor,
+            },
+          ]}
+        >
+          {displayText}
+        </Animated.Text>
       </Animated.View>
+
+      {/* Background glow effect */}
+      <View
+        style={[
+          styles.backgroundGlow,
+          { backgroundColor: currentColor, opacity: 0.1 },
+        ]}
+      />
     </View>
   );
 }
@@ -72,12 +115,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: Colors.background,
   },
+  textContainer: {
+    zIndex: 1,
+  },
   countText: {
-    fontSize: 120,
+    fontSize: 140,
     fontWeight: 'bold',
-    color: Colors.accent,
-    textShadowColor: Colors.accent,
     textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 20,
+    textShadowRadius: 30,
+  },
+  backgroundGlow: {
+    position: 'absolute',
+    width: 300,
+    height: 300,
+    borderRadius: 150,
   },
 });

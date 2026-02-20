@@ -1,19 +1,58 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  SharedValue,
+  interpolateColor,
+} from 'react-native-reanimated';
 import { Colors } from '../../utils/colors';
 
 interface ScoreDisplayProps {
   score: number;
   streak: number;
   multiplier: number;
+  scoreScale?: SharedValue<number>;
+  scoreBump?: SharedValue<number>;
+  multiplierScale?: SharedValue<number>;
+  multiplierGlow?: SharedValue<number>;
 }
 
-export function ScoreDisplay({ score, streak, multiplier }: ScoreDisplayProps) {
+export function ScoreDisplay({
+  score,
+  streak,
+  multiplier,
+  scoreScale,
+  scoreBump,
+  multiplierScale,
+  multiplierGlow,
+}: ScoreDisplayProps) {
+  const scoreAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: scoreScale?.value ?? 1 },
+      { translateY: scoreBump?.value ?? 0 },
+    ],
+  }));
+
+  const multiplierAnimatedStyle = useAnimatedStyle(() => {
+    const glowValue = multiplierGlow?.value ?? 0;
+    const shadowOpacity = glowValue * 0.8;
+
+    return {
+      transform: [{ scale: multiplierScale?.value ?? 1 }],
+      shadowColor: Colors.accent,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity,
+      shadowRadius: 10,
+    };
+  });
+
   return (
     <View style={styles.container}>
       <View style={styles.scoreSection}>
         <Text style={styles.scoreLabel}>SCORE</Text>
-        <Text style={styles.scoreValue}>{score}</Text>
+        <Animated.Text style={[styles.scoreValue, scoreAnimatedStyle]}>
+          {score}
+        </Animated.Text>
       </View>
 
       <View style={styles.streakSection}>
@@ -21,9 +60,9 @@ export function ScoreDisplay({ score, streak, multiplier }: ScoreDisplayProps) {
           <>
             <Text style={styles.streakLabel}>Streak: {streak}</Text>
             {multiplier > 1 && (
-              <View style={styles.multiplierBadge}>
+              <Animated.View style={[styles.multiplierBadge, multiplierAnimatedStyle]}>
                 <Text style={styles.multiplierText}>{multiplier}x</Text>
-              </View>
+              </Animated.View>
             )}
           </>
         )}

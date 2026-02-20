@@ -1,17 +1,22 @@
 // Core game engine hook for BlitzTap
 
 import { useCallback, useRef, useEffect } from 'react';
-import { useSharedValue, runOnJS, useAnimatedReaction } from 'react-native-reanimated';
+import { useSharedValue } from 'react-native-reanimated';
 import { useGame } from '../contexts/GameContext';
 import { generateRound } from '../utils/levelGenerator';
 import { calculateMultiplier, calculateRoundCoins } from '../utils/scoring';
 import { setHighScore, addCoins } from '../utils/storage';
 
-export function useGameEngine() {
+interface UseGameEngineOptions {
+  onTimeout?: () => void;
+}
+
+export function useGameEngine(options?: UseGameEngineOptions) {
   const { state, dispatch } = useGame();
 
   const startTimeRef = useRef<number>(0);
   const timerRef = useRef<number | null>(null);
+  const timeoutHandledRef = useRef(false);
   const timeProgress = useSharedValue(1);
 
   // Clean up timer on unmount
@@ -23,9 +28,16 @@ export function useGameEngine() {
     };
   }, []);
 
-  // Handle game over (timeout)
+  // Handle game over (timeout) - now with delay for animation
   const handleTimeout = useCallback(async () => {
-    if (state.status !== 'playing') return;
+    if (state.status !== 'playing' || timeoutHandledRef.current) return;
+    timeoutHandledRef.current = true;
+
+    // Notify caller about timeout (for animations)
+    options?.onTimeout?.();
+
+    // Delay the actual game over to allow for correct reveal animation
+    await new Promise(resolve => setTimeout(resolve, 1100));
 
     const isNewHighScore = state.score > state.highScore;
     const roundCoins = calculateRoundCoins(state.score, state.maxStreak, isNewHighScore);
@@ -44,7 +56,7 @@ export function useGameEngine() {
       type: 'UPDATE_COINS',
       payload: { totalCoins: newTotalCoins },
     });
-  }, [state.status, state.score, state.highScore, state.maxStreak, dispatch]);
+  }, [state.status, state.score, state.highScore, state.maxStreak, dispatch, options]);
 
   // Timer loop using requestAnimationFrame for precision
   const updateTimer = useCallback(() => {
@@ -68,6 +80,7 @@ export function useGameEngine() {
   useEffect(() => {
     if (state.status === 'playing') {
       startTimeRef.current = Date.now();
+      timeoutHandledRef.current = false;
       timeProgress.value = 1;
       timerRef.current = requestAnimationFrame(updateTimer);
     } else {
@@ -98,7 +111,7 @@ export function useGameEngine() {
     dispatch({ type: 'START_COUNTDOWN' });
   }, [dispatch]);
 
-  // Handle tap on an option
+  // Handle tap on an option (game logic only, animations handled by caller)
   const handleTap = useCallback(async (optionId: string) => {
     if (state.status !== 'playing') return;
 
@@ -132,9 +145,10 @@ export function useGameEngine() {
 
       // Reset timer for new round
       startTimeRef.current = Date.now();
+      timeoutHandledRef.current = false;
       timeProgress.value = 1;
     } else {
-      // Wrong tap - game over
+      // Wrong tap - game over (called after animation delay from game.tsx)
       const isNewHighScore = state.score > state.highScore;
       const roundCoins = calculateRoundCoins(state.score, state.maxStreak, isNewHighScore);
 
@@ -157,6 +171,7 @@ export function useGameEngine() {
 
   // Reset game
   const resetGame = useCallback(() => {
+    timeoutHandledRef.current = false;
     dispatch({ type: 'RESET_GAME' });
   }, [dispatch]);
 

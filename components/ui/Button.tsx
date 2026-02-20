@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
+import { Pressable, Text, StyleSheet, StyleProp, ViewStyle, TextStyle } from 'react-native';
 import { Colors } from '../../utils/colors';
 
 interface ButtonProps {
@@ -17,29 +17,27 @@ export function Button({
   size = 'medium',
   disabled = false,
 }: ButtonProps) {
-  const buttonStyles = [
-    styles.button,
-    styles[`button_${variant}` as keyof typeof styles],
-    styles[`button_${size}` as keyof typeof styles],
-    disabled ? styles.buttonDisabled : undefined,
-  ].filter(Boolean);
-
-  const textStyles = [
-    styles.text,
-    styles[`text_${variant}` as keyof typeof styles],
-    styles[`text_${size}` as keyof typeof styles],
-  ];
-
   return (
     <Pressable
       style={({ pressed }) => [
-        ...buttonStyles,
+        styles.button,
+        variant === 'primary' ? styles.button_primary : styles.button_secondary,
+        size === 'small' ? styles.button_small : size === 'large' ? styles.button_large : styles.button_medium,
+        disabled && styles.buttonDisabled,
         pressed && !disabled && styles.buttonPressed,
       ]}
       onPress={onPress}
       disabled={disabled}
     >
-      <Text style={textStyles}>{title}</Text>
+      <Text
+        style={[
+          styles.text,
+          variant === 'primary' ? styles.text_primary : styles.text_secondary,
+          size === 'small' ? styles.text_small : size === 'large' ? styles.text_large : styles.text_medium,
+        ]}
+      >
+        {title}
+      </Text>
     </Pressable>
   );
 }
