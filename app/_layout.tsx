@@ -1,16 +1,25 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View, StyleSheet, ActivityIndicator, Text, Platform } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
 import mobileAds, { AdsConsent, AdsConsentStatus } from 'react-native-google-mobile-ads';
 import { GameProvider } from '../contexts/GameContext';
 import { SettingsProvider } from '../contexts/SettingsContext';
 import { PurchaseProvider } from '../contexts/PurchaseContext';
 import { Colors } from '../utils/colors';
+import AnimatedSplash from '../components/AnimatedSplash';
+
+// Keep the native splash screen visible while we load resources
+SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const [isReady, setIsReady] = useState(false);
-  const [initError, setInitError] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [animationComplete, setAnimationComplete] = useState(false);
+  const [nativeSplashHidden, setNativeSplashHidden] = useState(false);
+
+  // App is fully ready when both initialization and animation are done
+  const isAppReady = isInitialized && animationComplete;
 
   useEffect(() => {
     async function initialize() {
@@ -30,23 +39,38 @@ export default function RootLayout() {
         // Initialize AdMob SDK
         await mobileAds().initialize();
 
-        setIsReady(true);
+        setIsInitialized(true);
       } catch (error) {
         console.error('Error initializing ads:', error);
         // Don't block app launch on ad initialization failure
-        setIsReady(true);
+        setIsInitialized(true);
       }
     }
 
     initialize();
   }, []);
 
-  if (!isReady) {
+  // Hide native splash screen once component mounts (animated splash takes over)
+  useEffect(() => {
+    async function hideNativeSplash() {
+      await SplashScreen.hideAsync();
+      setNativeSplashHidden(true);
+    }
+    hideNativeSplash();
+  }, []);
+
+  const handleAnimationComplete = useCallback(() => {
+    setAnimationComplete(true);
+  }, []);
+
+  // Show animated splash until both animation completes and app is initialized
+  if (!isAppReady) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={styles.container}>
         <StatusBar style="light" />
-        <ActivityIndicator size="large" color={Colors.accent} />
-        <Text style={styles.loadingText}>Loading...</Text>
+        {nativeSplashHidden && (
+          <AnimatedSplash onAnimationComplete={handleAnimationComplete} />
+        )}
       </View>
     );
   }
@@ -75,16 +99,5 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
-  },
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: Colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    color: Colors.textSecondary,
-    marginTop: 16,
-    fontSize: 16,
   },
 });
