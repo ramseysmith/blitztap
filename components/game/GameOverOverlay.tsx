@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -10,6 +10,7 @@ import Animated, {
   withSequence,
   Easing,
   runOnJS,
+  SharedValue,
 } from 'react-native-reanimated';
 import { Colors } from '../../utils/colors';
 import { useFeedback } from '../../hooks/useFeedback';
@@ -20,6 +21,14 @@ interface GameOverOverlayProps {
   isNewHighScore: boolean;
   roundCoins: number;
   onPlayAgain: () => void;
+  // New props for ads/purchases
+  rewardedReady?: boolean;
+  hasUsedContinue?: boolean;
+  onContinue?: () => void;
+  onRemoveAds?: () => void;
+  isProUser?: boolean;
+  removeAdsPrice?: string;
+  isPurchasing?: boolean;
 }
 
 export function GameOverOverlay({
@@ -27,10 +36,20 @@ export function GameOverOverlay({
   isNewHighScore,
   roundCoins,
   onPlayAgain,
+  rewardedReady = false,
+  hasUsedContinue = false,
+  onContinue,
+  onRemoveAds,
+  isProUser = false,
+  removeAdsPrice = '$3.99',
+  isPurchasing = false,
 }: GameOverOverlayProps) {
   const feedback = useFeedback();
   const hasPlayedGameOver = useRef(false);
   const hasPlayedHighScore = useRef(false);
+
+  // Can show continue button?
+  const showContinueButton = rewardedReady && !hasUsedContinue && onContinue;
 
   // Staggered animation values
   const backdropOpacity = useSharedValue(0);
@@ -40,24 +59,22 @@ export function GameOverOverlay({
   const highScoreBadgeScale = useSharedValue(0);
   const coinsY = useSharedValue(30);
   const coinsOpacity = useSharedValue(0);
+  const continueButtonScale = useSharedValue(0.8);
+  const continueButtonOpacity = useSharedValue(0);
   const buttonScale = useSharedValue(0.8);
   const buttonOpacity = useSharedValue(0);
+  const removeAdsOpacity = useSharedValue(0);
 
   // Derived value for animated score counting
   const animatedScore = useDerivedValue(() => {
-    // Decelerate near the end using easeOutQuart
     const t = scoreProgress.value;
     const eased = 1 - Math.pow(1 - t, 4);
     return Math.round(eased * score);
   });
 
-  // Button press animation
+  // Button press animations
   const buttonPressScale = useSharedValue(1);
-
-  // Score tick sound callback
-  const playScoreTick = () => {
-    feedback.onScoreCountTick();
-  };
+  const continueButtonPressScale = useSharedValue(1);
 
   // High score sound callback
   const playHighScoreSound = () => {
@@ -97,7 +114,6 @@ export function GameOverOverlay({
           withSpring(1, SPRING_CONFIG)
         )
       );
-      // Trigger high score sound
       setTimeout(playHighScoreSound, 1300);
     }
 
@@ -105,9 +121,21 @@ export function GameOverOverlay({
     coinsY.value = withDelay(1500, withSpring(0, SPRING_CONFIG));
     coinsOpacity.value = withDelay(1500, withTiming(1, { duration: 200 }));
 
-    // 6. Play Again button (1700ms delay)
-    buttonScale.value = withDelay(1700, withSpring(1, SPRING_BOUNCY));
-    buttonOpacity.value = withDelay(1700, withTiming(1, { duration: 200 }));
+    // 6. Continue button (1700ms delay) - if available
+    if (showContinueButton) {
+      continueButtonScale.value = withDelay(1700, withSpring(1, SPRING_BOUNCY));
+      continueButtonOpacity.value = withDelay(1700, withTiming(1, { duration: 200 }));
+    }
+
+    // 7. Play Again button (1900ms delay if continue shown, 1700ms otherwise)
+    const playAgainDelay = showContinueButton ? 1900 : 1700;
+    buttonScale.value = withDelay(playAgainDelay, withSpring(1, SPRING_BOUNCY));
+    buttonOpacity.value = withDelay(playAgainDelay, withTiming(1, { duration: 200 }));
+
+    // 8. Remove ads prompt (2100ms delay)
+    if (!isProUser && onRemoveAds) {
+      removeAdsOpacity.value = withDelay(2100, withTiming(1, { duration: 300 }));
+    }
   }, []);
 
   const backdropStyle = useAnimatedStyle(() => {
@@ -148,11 +176,26 @@ export function GameOverOverlay({
     };
   });
 
+  const continueButtonStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      transform: [{ scale: continueButtonScale.value * continueButtonPressScale.value }],
+      opacity: continueButtonOpacity.value,
+    };
+  });
+
   const buttonStyle = useAnimatedStyle(() => {
     'worklet';
     return {
       transform: [{ scale: buttonScale.value * buttonPressScale.value }],
       opacity: buttonOpacity.value,
+    };
+  });
+
+  const removeAdsStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      opacity: removeAdsOpacity.value,
     };
   });
 
@@ -164,9 +207,27 @@ export function GameOverOverlay({
     buttonPressScale.value = withSpring(1, SPRING_CONFIG);
   };
 
+  const handleContinuePressIn = () => {
+    continueButtonPressScale.value = withSpring(0.95, { damping: 15, stiffness: 300 });
+  };
+
+  const handleContinuePressOut = () => {
+    continueButtonPressScale.value = withSpring(1, SPRING_CONFIG);
+  };
+
   const handlePlayAgain = () => {
     feedback.onButtonPress();
     onPlayAgain();
+  };
+
+  const handleContinue = () => {
+    feedback.onButtonPress();
+    onContinue?.();
+  };
+
+  const handleRemoveAds = () => {
+    feedback.onButtonPress();
+    onRemoveAds?.();
   };
 
   return (
@@ -194,6 +255,21 @@ export function GameOverOverlay({
           <Text style={styles.coinsValue}>+{roundCoins}</Text>
         </Animated.View>
 
+        {/* Continue Button - shown above Play Again if rewarded ad is ready */}
+        {showContinueButton && (
+          <Animated.View style={[styles.continueButtonContainer, continueButtonStyle]}>
+            <Pressable
+              style={styles.continueButton}
+              onPress={handleContinue}
+              onPressIn={handleContinuePressIn}
+              onPressOut={handleContinuePressOut}
+            >
+              <Text style={styles.continueButtonText}>Continue</Text>
+              <Text style={styles.continueSubtext}>Watch ad to keep playing</Text>
+            </Pressable>
+          </Animated.View>
+        )}
+
         <Animated.View style={buttonStyle}>
           <Pressable
             style={styles.playAgainButton}
@@ -204,20 +280,40 @@ export function GameOverOverlay({
             <Text style={styles.playAgainText}>Play Again</Text>
           </Pressable>
         </Animated.View>
+
+        {/* Remove Ads prompt - shown below Play Again for non-pro users */}
+        {!isProUser && onRemoveAds && (
+          <Animated.View style={[styles.removeAdsContainer, removeAdsStyle]}>
+            <Pressable
+              style={styles.removeAdsButton}
+              onPress={handleRemoveAds}
+              disabled={isPurchasing}
+            >
+              {isPurchasing ? (
+                <ActivityIndicator size="small" color={Colors.warning} />
+              ) : (
+                <>
+                  <Text style={styles.removeAdsText}>Tired of ads?</Text>
+                  <Text style={styles.removeAdsPrice}>
+                    Remove them for {removeAdsPrice}
+                  </Text>
+                </>
+              )}
+            </Pressable>
+          </Animated.View>
+        )}
       </View>
     </Animated.View>
   );
 }
 
 // Separate component for animated score text
-function AnimatedScoreText({ score }: { score: Animated.SharedValue<number> }) {
-  return (
-    <ReanimatedText text={score} />
-  );
+function AnimatedScoreText({ score }: { score: SharedValue<number> }) {
+  return <ReanimatedText text={score} />;
 }
 
 // Helper component to display animated number
-function ReanimatedText({ text }: { text: Animated.SharedValue<number> }) {
+function ReanimatedText({ text }: { text: SharedValue<number> }) {
   const [displayValue, setDisplayValue] = React.useState(0);
 
   useDerivedValue(() => {
@@ -284,7 +380,7 @@ const styles = StyleSheet.create({
   },
   coinsSection: {
     alignItems: 'center',
-    marginBottom: 50,
+    marginBottom: 30,
   },
   coinsLabel: {
     fontSize: 14,
@@ -295,6 +391,33 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: 'bold',
     color: Colors.warning,
+  },
+  continueButtonContainer: {
+    marginBottom: 16,
+  },
+  continueButton: {
+    backgroundColor: Colors.success,
+    paddingHorizontal: 50,
+    paddingVertical: 16,
+    borderRadius: 30,
+    alignItems: 'center',
+    shadowColor: Colors.success,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+  },
+  continueButtonText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: Colors.background,
+    textTransform: 'uppercase',
+    letterSpacing: 2,
+  },
+  continueSubtext: {
+    fontSize: 11,
+    color: Colors.background,
+    opacity: 0.8,
+    marginTop: 4,
   },
   playAgainButton: {
     backgroundColor: Colors.accent,
@@ -312,5 +435,22 @@ const styles = StyleSheet.create({
     color: Colors.background,
     textTransform: 'uppercase',
     letterSpacing: 3,
+  },
+  removeAdsContainer: {
+    marginTop: 30,
+  },
+  removeAdsButton: {
+    alignItems: 'center',
+    padding: 12,
+  },
+  removeAdsText: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+  },
+  removeAdsPrice: {
+    fontSize: 14,
+    color: Colors.warning,
+    fontWeight: '600',
+    marginTop: 4,
   },
 });

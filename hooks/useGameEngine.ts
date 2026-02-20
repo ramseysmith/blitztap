@@ -140,7 +140,7 @@ export function useGameEngine(options?: UseGameEngineOptions) {
       // Reset the timeout flag when not playing (for next game)
       timeoutHandledRef.current = false;
     }
-  }, [state.status, state.target?.id]);
+  }, [state.status, state.target?.color, state.target?.shape]);
 
   // Start game (called after countdown)
   const startGame = useCallback(() => {
@@ -238,12 +238,37 @@ export function useGameEngine(options?: UseGameEngineOptions) {
     }, 50);
   }, [resetGame, startCountdown]);
 
+  // Continue game after watching rewarded ad (keeps score and streak)
+  const continueGame = useCallback(() => {
+    timeoutHandledRef.current = false;
+    if (timerRef.current) {
+      cancelAnimationFrame(timerRef.current);
+      timerRef.current = null;
+    }
+    // Generate new round at current tier (based on current score)
+    const currentState = stateRef.current;
+    const round = generateRound(currentState.score);
+    timeProgress.value = 1;
+
+    dispatch({
+      type: 'CONTINUE_GAME',
+      payload: {
+        target: round.target,
+        options: round.options,
+        gridColumns: round.gridColumns,
+        timePerTap: round.timePerTap,
+        tier: round.tier,
+      },
+    });
+  }, [dispatch, timeProgress]);
+
   return {
     startGame,
     startCountdown,
     handleTap,
     resetGame,
     playAgain,
+    continueGame,
     timeProgress,
   };
 }

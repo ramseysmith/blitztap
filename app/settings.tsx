@@ -1,22 +1,21 @@
-import React from 'react';
-import { View, Text, StyleSheet, Pressable, Switch } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Pressable, Switch, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useSettings } from '../contexts/SettingsContext';
+import { usePurchase } from '../contexts/PurchaseContext';
 import { Colors } from '../utils/colors';
 
 export default function SettingsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { settings, setSoundEnabled, setHapticsEnabled } = useSettings();
+  const { isProUser, restorePurchases } = usePurchase();
+  const [isRestoring, setIsRestoring] = useState(false);
 
   const handleSoundToggle = async (value: boolean) => {
     await setSoundEnabled(value);
-    // Play sample sound when turning ON
-    if (value) {
-      // Sound sample would play here when real sounds are added
-    }
   };
 
   const handleHapticsToggle = async (value: boolean) => {
@@ -31,12 +30,19 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleRestorePurchases = () => {
-    // TODO: Connect to RevenueCat in Phase 4
-    // Purchases.restorePurchases()
+  const handleRestorePurchases = async () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch (error) {}
+
+    setIsRestoring(true);
+    const result = await restorePurchases();
+    setIsRestoring(false);
+
+    Alert.alert(
+      result.success ? 'Success' : 'Restore Purchases',
+      result.message
+    );
   };
 
   return (
@@ -92,6 +98,16 @@ export default function SettingsScreen() {
         {/* Divider */}
         <View style={styles.divider} />
 
+        {/* Pro Status */}
+        {isProUser && (
+          <View style={styles.proStatusRow}>
+            <View style={styles.proBadge}>
+              <Text style={styles.proBadgeText}>PRO</Text>
+            </View>
+            <Text style={styles.proStatusText}>Ads removed</Text>
+          </View>
+        )}
+
         {/* Restore Purchases */}
         <Pressable
           style={({ pressed }) => [
@@ -99,11 +115,21 @@ export default function SettingsScreen() {
             pressed && styles.restoreButtonPressed,
           ]}
           onPress={handleRestorePurchases}
+          disabled={isRestoring}
         >
-          <Text style={styles.restoreButtonText}>Restore Purchases</Text>
-          <Text style={styles.restoreDescription}>
-            Restore previous in-app purchases
-          </Text>
+          {isRestoring ? (
+            <View style={styles.restoreLoadingContainer}>
+              <ActivityIndicator size="small" color={Colors.accent} />
+              <Text style={styles.restoreLoadingText}>Restoring...</Text>
+            </View>
+          ) : (
+            <>
+              <Text style={styles.restoreButtonText}>Restore Purchases</Text>
+              <Text style={styles.restoreDescription}>
+                Restore previous in-app purchases
+              </Text>
+            </>
+          )}
         </Pressable>
       </View>
 
@@ -164,6 +190,30 @@ const styles = StyleSheet.create({
   divider: {
     height: 20,
   },
+  proStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.backgroundLight,
+  },
+  proBadge: {
+    backgroundColor: Colors.warning,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginRight: 12,
+  },
+  proBadgeText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: Colors.background,
+    letterSpacing: 1,
+  },
+  proStatusText: {
+    fontSize: 16,
+    color: Colors.textPrimary,
+  },
   restoreButton: {
     paddingVertical: 16,
   },
@@ -179,6 +229,16 @@ const styles = StyleSheet.create({
   restoreDescription: {
     fontSize: 13,
     color: Colors.textSecondary,
+  },
+  restoreLoadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  restoreLoadingText: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: Colors.accent,
   },
   footer: {
     position: 'absolute',

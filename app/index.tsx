@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, Pressable, Alert, ActivityIndicator } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -11,22 +11,28 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BannerAd, BannerAdSize } from 'react-native-google-mobile-ads';
 import { useGame } from '../contexts/GameContext';
+import { usePurchase } from '../contexts/PurchaseContext';
 import { useFeedback } from '../hooks/useFeedback';
 import { CoinDisplay } from '../components/ui/CoinDisplay';
 import { Colors } from '../utils/colors';
+import { AD_UNIT_IDS } from '../utils/adConfig';
 import { SPRING_CONFIG } from '../hooks/useGameAnimations';
 
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { state } = useGame();
+  const { isProUser, removeAdsPrice, purchaseRemoveAds } = usePurchase();
   const feedback = useFeedback();
+  const [isPurchasing, setIsPurchasing] = useState(false);
 
   // Animation values
   const titleGlow = useSharedValue(0.5);
   const buttonGlow = useSharedValue(0.3);
   const buttonScale = useSharedValue(1);
+  const removeAdsScale = useSharedValue(1);
 
   // Title glow pulse
   useEffect(() => {
@@ -65,12 +71,27 @@ export default function HomeScreen() {
     };
   });
 
+  const removeAdsButtonStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      transform: [{ scale: removeAdsScale.value }],
+    };
+  });
+
   const handlePressIn = () => {
     buttonScale.value = withSpring(0.95, { damping: 15, stiffness: 300 });
   };
 
   const handlePressOut = () => {
     buttonScale.value = withSpring(1, SPRING_CONFIG);
+  };
+
+  const handleRemoveAdsPressIn = () => {
+    removeAdsScale.value = withSpring(0.95, { damping: 15, stiffness: 300 });
+  };
+
+  const handleRemoveAdsPressOut = () => {
+    removeAdsScale.value = withSpring(1, SPRING_CONFIG);
   };
 
   const handlePlay = () => {
@@ -81,6 +102,17 @@ export default function HomeScreen() {
   const handleSettings = () => {
     feedback.onButtonPress();
     router.push('/settings');
+  };
+
+  const handleRemoveAds = async () => {
+    feedback.onButtonPress();
+    setIsPurchasing(true);
+    const result = await purchaseRemoveAds();
+    setIsPurchasing(false);
+
+    if (result.message) {
+      Alert.alert(result.success ? 'Success' : 'Purchase', result.message);
+    }
   };
 
   return (
@@ -107,12 +139,8 @@ export default function HomeScreen() {
       {/* Main content */}
       <View style={styles.content}>
         <View style={styles.titleContainer}>
-          <Animated.Text style={[styles.title, titleGlowStyle]}>
-            BLITZ
-          </Animated.Text>
-          <Animated.Text style={[styles.titleAccent, titleGlowStyle]}>
-            TAP
-          </Animated.Text>
+          <Animated.Text style={[styles.title, titleGlowStyle]}>BLITZ</Animated.Text>
+          <Animated.Text style={[styles.titleAccent, titleGlowStyle]}>TAP</Animated.Text>
         </View>
 
         <View style={styles.highScoreContainer}>
@@ -124,23 +152,50 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* Play button */}
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 40 }]}>
-        <Pressable
-          onPress={handlePlay}
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
-        >
+      {/* Play button and Remove Ads */}
+      <View style={[styles.footer, { paddingBottom: isProUser ? insets.bottom + 40 : insets.bottom + 80 }]}>
+        <Pressable onPress={handlePlay} onPressIn={handlePressIn} onPressOut={handlePressOut}>
           <Animated.View style={[styles.playButton, buttonGlowStyle]}>
             <Text style={styles.playButtonText}>PLAY</Text>
           </Animated.View>
         </Pressable>
 
-        {/* Shop teaser */}
-        <View style={styles.shopTeaser}>
-          <Text style={styles.shopTeaserText}>Shop Coming Soon</Text>
-        </View>
+        {/* Remove Ads button - shown only for non-pro users */}
+        {!isProUser && (
+          <Pressable
+            onPress={handleRemoveAds}
+            onPressIn={handleRemoveAdsPressIn}
+            onPressOut={handleRemoveAdsPressOut}
+            disabled={isPurchasing}
+          >
+            <Animated.View style={[styles.removeAdsButton, removeAdsButtonStyle]}>
+              {isPurchasing ? (
+                <ActivityIndicator size="small" color={Colors.background} />
+              ) : (
+                <Text style={styles.removeAdsButtonText}>
+                  Remove Ads - {removeAdsPrice}
+                </Text>
+              )}
+            </Animated.View>
+          </Pressable>
+        )}
       </View>
+
+      {/* Banner ad at bottom - shown only for non-pro users */}
+      {!isProUser && (
+        <View style={[styles.bannerContainer, { paddingBottom: insets.bottom }]}>
+          <BannerAd
+            unitId={AD_UNIT_IDS.BANNER}
+            size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
+            requestOptions={{
+              requestNonPersonalizedAdsOnly: true,
+            }}
+            onAdFailedToLoad={(error: Error) => {
+              console.log('Banner ad failed to load:', error);
+            }}
+          />
+        </View>
+      )}
     </View>
   );
 }
@@ -265,12 +320,29 @@ const styles = StyleSheet.create({
     color: Colors.background,
     letterSpacing: 6,
   },
-  shopTeaser: {
-    marginTop: 30,
+  removeAdsButton: {
+    marginTop: 20,
+    backgroundColor: Colors.warning,
+    paddingHorizontal: 30,
+    paddingVertical: 14,
+    borderRadius: 25,
+    shadowColor: Colors.warning,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
   },
-  shopTeaserText: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    opacity: 0.5,
+  removeAdsButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.background,
+    letterSpacing: 1,
+  },
+  bannerContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    backgroundColor: Colors.background,
   },
 });

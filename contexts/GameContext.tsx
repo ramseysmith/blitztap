@@ -22,6 +22,7 @@ export interface GameState {
   roundCoins: number;
   roundsPlayedThisSession: number;
   isNewHighScore: boolean;
+  hasUsedContinue: boolean;
 }
 
 // Initial State
@@ -42,6 +43,7 @@ const initialState: GameState = {
   roundCoins: 0,
   roundsPlayedThisSession: 0,
   isNewHighScore: false,
+  hasUsedContinue: false,
 };
 
 // Action Types
@@ -54,7 +56,8 @@ type GameAction =
   | { type: 'RESET_GAME' }
   | { type: 'LOAD_SAVED_DATA'; payload: { highScore: number; totalCoins: number } }
   | { type: 'UPDATE_COINS'; payload: { totalCoins: number } }
-  | { type: 'UPDATE_TIME'; payload: { timeRemaining: number } };
+  | { type: 'UPDATE_TIME'; payload: { timeRemaining: number } }
+  | { type: 'CONTINUE_GAME'; payload: { target: Target; options: Option[]; gridColumns: number; timePerTap: number; tier: 1 | 2 | 3 | 4 } };
 
 // Reducer
 function gameReducer(state: GameState, action: GameAction): GameState {
@@ -69,6 +72,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         multiplier: 1,
         roundCoins: 0,
         isNewHighScore: false,
+        hasUsedContinue: false,
       };
 
     case 'START_GAME':
@@ -142,6 +146,20 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       return {
         ...state,
         timeRemaining: action.payload.timeRemaining,
+      };
+
+    case 'CONTINUE_GAME':
+      return {
+        ...state,
+        status: 'playing',
+        hasUsedContinue: true,
+        target: action.payload.target,
+        options: action.payload.options,
+        gridColumns: action.payload.gridColumns,
+        timePerTap: action.payload.timePerTap * 1000,
+        timeRemaining: action.payload.timePerTap * 1000,
+        tier: action.payload.tier,
+        // Keep score, streak, and multiplier intact
       };
 
     default:
