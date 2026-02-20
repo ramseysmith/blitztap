@@ -6,12 +6,9 @@ import Animated, {
   withSpring,
   withTiming,
   withSequence,
-  withDelay,
-  Easing,
-  runOnJS,
 } from 'react-native-reanimated';
 import { Colors } from '../../utils/colors';
-import { useHaptics } from '../../hooks/useHaptics';
+import { useFeedback } from '../../hooks/useFeedback';
 import { SPRING_BOUNCY } from '../../hooks/useGameAnimations';
 
 interface CountdownReadyProps {
@@ -29,7 +26,7 @@ export function CountdownReady({ onComplete }: CountdownReadyProps) {
   const [count, setCount] = useState(3);
   const scale = useSharedValue(2);
   const opacity = useSharedValue(0);
-  const haptics = useHaptics();
+  const feedback = useFeedback();
 
   useEffect(() => {
     // Reset animation values
@@ -40,8 +37,12 @@ export function CountdownReady({ onComplete }: CountdownReadyProps) {
     scale.value = withSpring(1, SPRING_BOUNCY);
     opacity.value = withTiming(1, { duration: 200 });
 
-    // Haptic feedback
-    haptics.countdown();
+    // Haptic and sound feedback
+    if (count > 0) {
+      feedback.onCountdownTick();
+    } else {
+      feedback.onCountdownGo();
+    }
 
     if (count > 0) {
       // Hold then fade out

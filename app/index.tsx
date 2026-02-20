@@ -12,14 +12,16 @@ import Animated, {
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGame } from '../contexts/GameContext';
+import { useFeedback } from '../hooks/useFeedback';
 import { CoinDisplay } from '../components/ui/CoinDisplay';
 import { Colors } from '../utils/colors';
-import { SPRING_CONFIG, SPRING_BOUNCY } from '../hooks/useGameAnimations';
+import { SPRING_CONFIG } from '../hooks/useGameAnimations';
 
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { state } = useGame();
+  const feedback = useFeedback();
 
   // Animation values
   const titleGlow = useSharedValue(0.5);
@@ -66,7 +68,13 @@ export default function HomeScreen() {
   };
 
   const handlePlay = () => {
+    feedback.onButtonPress();
     router.push('/game');
+  };
+
+  const handleSettings = () => {
+    feedback.onButtonPress();
+    router.push('/settings');
   };
 
   return (
@@ -78,8 +86,15 @@ export default function HomeScreen() {
         <View style={[styles.bgShape, styles.bgShape3]} />
       </View>
 
-      {/* Header with coins */}
+      {/* Header with coins and settings */}
       <View style={styles.header}>
+        <Pressable
+          onPress={handleSettings}
+          style={styles.settingsButton}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Text style={styles.settingsIcon}>⚙️</Text>
+        </Pressable>
         <CoinDisplay coins={state.totalCoins} />
       </View>
 
@@ -160,9 +175,17 @@ const styles = StyleSheet.create({
     right: 50,
   },
   header: {
-    alignItems: 'flex-end',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 20,
     zIndex: 1,
+  },
+  settingsButton: {
+    padding: 8,
+  },
+  settingsIcon: {
+    fontSize: 24,
   },
   content: {
     flex: 1,

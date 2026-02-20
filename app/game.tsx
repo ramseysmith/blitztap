@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGame } from '../contexts/GameContext';
 import { useGameEngine } from '../hooks/useGameEngine';
-import { useHaptics } from '../hooks/useHaptics';
+import { useFeedback } from '../hooks/useFeedback';
 import { useGameAnimations } from '../hooks/useGameAnimations';
 import { TimerBar } from '../components/game/TimerBar';
 import { TargetDisplay } from '../components/game/TargetDisplay';
@@ -20,7 +20,7 @@ import { calculateMultiplier, calculateTier } from '../utils/scoring';
 export default function GameScreen() {
   const insets = useSafeAreaInsets();
   const { state } = useGame();
-  const haptics = useHaptics();
+  const feedback = useFeedback();
   const animations = useGameAnimations();
 
   // Track tapped options for animations
@@ -34,13 +34,13 @@ export default function GameScreen() {
   const prevStreakRef = useRef(0);
   const prevMultiplierRef = useRef(1);
 
-  // Handle timeout with animation
+  // Handle timeout with animation and feedback
   const onTimeout = useCallback(() => {
     setIsTimedOut(true);
     setShowCorrectReveal(true);
     animations.animateTimeout();
-    haptics.wrongTap();
-  }, [animations, haptics]);
+    feedback.onTimeout();
+  }, [animations, feedback]);
 
   const { startGame, startCountdown, handleTap, playAgain, timeProgress } = useGameEngine({
     onTimeout,
@@ -51,6 +51,7 @@ export default function GameScreen() {
     startCountdown();
     return () => {
       animations.resetAnimations();
+      feedback.stopAllSounds();
     };
   }, [startCountdown]);
 
@@ -60,10 +61,11 @@ export default function GameScreen() {
       const currentTier = calculateTier(state.score);
       if (currentTier !== prevTierRef.current && state.score > 0) {
         animations.animateTierTransition(currentTier);
+        feedback.onLevelUp();
       }
       prevTierRef.current = currentTier;
     }
-  }, [state.score, state.status, animations]);
+  }, [state.score, state.status, animations, feedback]);
 
   // Detect streak milestones
   useEffect(() => {
@@ -78,10 +80,11 @@ export default function GameScreen() {
         (streak === 20 && prevStreak < 20)
       ) {
         animations.animateStreakMilestone(streak);
+        feedback.onStreakMilestone();
       }
       prevStreakRef.current = streak;
     }
-  }, [state.streak, state.status, animations]);
+  }, [state.streak, state.status, animations, feedback]);
 
   // Detect multiplier changes
   useEffect(() => {
@@ -107,7 +110,7 @@ export default function GameScreen() {
     }
   }, [state.status]);
 
-  // Handle tap with haptic feedback and animations
+  // Handle tap with feedback and animations
   const onTap = useCallback(async (optionId: string) => {
     if (isTimedOut) return;
 
@@ -117,7 +120,7 @@ export default function GameScreen() {
     if (tappedOption.isCorrect) {
       // Correct tap
       setCorrectOptionId(optionId);
-      await haptics.correctTap();
+      feedback.onCorrectTap();
       animations.animateCorrectTap();
 
       // Clear after animation
@@ -129,7 +132,7 @@ export default function GameScreen() {
     } else {
       // Wrong tap
       setWrongOptionId(optionId);
-      await haptics.wrongTap();
+      feedback.onWrongTap();
       animations.animateWrongTap();
 
       // Show correct answer after shake
@@ -142,20 +145,17 @@ export default function GameScreen() {
         handleTap(optionId);
       }, 1100); // 300ms shake + 800ms reveal
     }
-  }, [state.options, haptics, animations, handleTap, isTimedOut]);
+  }, [state.options, feedback, animations, handleTap, isTimedOut]);
 
   // Handle timer warning
   const onTimerWarning = useCallback((intensity: number) => {
     animations.animateTimerWarning(intensity);
   }, [animations]);
 
-  // Handle play again with haptic
-  const onPlayAgain = useCallback(async () => {
-    if (state.isNewHighScore) {
-      await haptics.newHighScore();
-    }
+  // Handle play again
+  const onPlayAgain = useCallback(() => {
     playAgain();
-  }, [state.isNewHighScore, haptics, playAgain]);
+  }, [playAgain]);
 
   const renderContent = () => {
     switch (state.status) {

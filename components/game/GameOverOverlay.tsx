@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -12,6 +12,7 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 import { Colors } from '../../utils/colors';
+import { useFeedback } from '../../hooks/useFeedback';
 import { SPRING_BOUNCY, SPRING_CONFIG } from '../../hooks/useGameAnimations';
 
 interface GameOverOverlayProps {
@@ -27,6 +28,10 @@ export function GameOverOverlay({
   roundCoins,
   onPlayAgain,
 }: GameOverOverlayProps) {
+  const feedback = useFeedback();
+  const hasPlayedGameOver = useRef(false);
+  const hasPlayedHighScore = useRef(false);
+
   // Staggered animation values
   const backdropOpacity = useSharedValue(0);
   const titleY = useSharedValue(-50);
@@ -49,7 +54,26 @@ export function GameOverOverlay({
   // Button press animation
   const buttonPressScale = useSharedValue(1);
 
+  // Score tick sound callback
+  const playScoreTick = () => {
+    feedback.onScoreCountTick();
+  };
+
+  // High score sound callback
+  const playHighScoreSound = () => {
+    if (!hasPlayedHighScore.current) {
+      hasPlayedHighScore.current = true;
+      feedback.onNewHighScore();
+    }
+  };
+
   useEffect(() => {
+    // Play game over sound
+    if (!hasPlayedGameOver.current) {
+      hasPlayedGameOver.current = true;
+      feedback.onGameOver();
+    }
+
     // Staggered entry animation sequence
     // 1. Backdrop fade in (0ms)
     backdropOpacity.value = withTiming(1, { duration: 200 });
@@ -73,6 +97,8 @@ export function GameOverOverlay({
           withSpring(1, SPRING_CONFIG)
         )
       );
+      // Trigger high score sound
+      setTimeout(playHighScoreSound, 1300);
     }
 
     // 5. Coins fade in from below (1500ms delay)
@@ -120,6 +146,11 @@ export function GameOverOverlay({
     buttonPressScale.value = withSpring(1, SPRING_CONFIG);
   };
 
+  const handlePlayAgain = () => {
+    feedback.onButtonPress();
+    onPlayAgain();
+  };
+
   return (
     <Animated.View style={[styles.overlay, backdropStyle]}>
       <View style={styles.content}>
@@ -148,7 +179,7 @@ export function GameOverOverlay({
         <Animated.View style={buttonStyle}>
           <Pressable
             style={styles.playAgainButton}
-            onPress={onPlayAgain}
+            onPress={handlePlayAgain}
             onPressIn={handlePressIn}
             onPressOut={handlePressOut}
           >
@@ -162,14 +193,8 @@ export function GameOverOverlay({
 
 // Separate component for animated score text
 function AnimatedScoreText({ score }: { score: Animated.SharedValue<number> }) {
-  const animatedProps = useAnimatedStyle(() => ({
-    // We can't animate text content directly, so we use a workaround
-  }));
-
   return (
-    <Animated.Text style={styles.scoreValue}>
-      <ReanimatedText text={score} />
-    </Animated.Text>
+    <ReanimatedText text={score} />
   );
 }
 
