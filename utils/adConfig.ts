@@ -29,8 +29,8 @@ export const AD_UNIT_IDS = {
 // RevenueCat Configuration
 // Replace the test key with production keys before publishing
 export const REVENUECAT_CONFIG = {
-  // RevenueCat API Keys (currently using test key)
-  API_KEY: 'test_cKIYYehMqvZgQHqCFpUvkrciTmI',
+  // RevenueCat API Key (iOS)
+  API_KEY: 'appl_nnxSzOZehJLQOVQQTeHgOraPrUm',
 
   // Entitlement identifier for "Remove Ads" purchase
   REMOVE_ADS_ENTITLEMENT: 'remove_ads',
