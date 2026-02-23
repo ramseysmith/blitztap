@@ -140,7 +140,7 @@ export function useGameEngine(options?: UseGameEngineOptions) {
       // Reset the timeout flag when not playing (for next game)
       timeoutHandledRef.current = false;
     }
-  }, [state.status, state.target?.color, state.target?.shape]);
+  }, [state.status, state.target]);
 
   // Start game (called after countdown)
   const startGame = useCallback(() => {

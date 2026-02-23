@@ -21,6 +21,7 @@ interface GameOverOverlayProps {
   isNewHighScore: boolean;
   roundCoins: number;
   onPlayAgain: () => void;
+  onHome: () => void;
   // New props for ads/purchases
   rewardedReady?: boolean;
   hasUsedContinue?: boolean;
@@ -36,6 +37,7 @@ export function GameOverOverlay({
   isNewHighScore,
   roundCoins,
   onPlayAgain,
+  onHome,
   rewardedReady = false,
   hasUsedContinue = false,
   onContinue,
@@ -64,6 +66,7 @@ export function GameOverOverlay({
   const buttonScale = useSharedValue(0.8);
   const buttonOpacity = useSharedValue(0);
   const removeAdsOpacity = useSharedValue(0);
+  const homeButtonOpacity = useSharedValue(0);
 
   // Derived value for animated score counting
   const animatedScore = useDerivedValue(() => {
@@ -132,7 +135,10 @@ export function GameOverOverlay({
     buttonScale.value = withDelay(playAgainDelay, withSpring(1, SPRING_BOUNCY));
     buttonOpacity.value = withDelay(playAgainDelay, withTiming(1, { duration: 200 }));
 
-    // 8. Remove ads prompt (2100ms delay)
+    // 8. Home button (200ms after play again)
+    homeButtonOpacity.value = withDelay(playAgainDelay + 200, withTiming(1, { duration: 200 }));
+
+    // 9. Remove ads prompt (2100ms delay)
     if (!isProUser && onRemoveAds) {
       removeAdsOpacity.value = withDelay(2100, withTiming(1, { duration: 300 }));
     }
@@ -199,6 +205,13 @@ export function GameOverOverlay({
     };
   });
 
+  const homeButtonStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      opacity: homeButtonOpacity.value,
+    };
+  });
+
   const handlePressIn = () => {
     buttonPressScale.value = withSpring(0.95, { damping: 15, stiffness: 300 });
   };
@@ -228,6 +241,11 @@ export function GameOverOverlay({
   const handleRemoveAds = () => {
     feedback.onButtonPress();
     onRemoveAds?.();
+  };
+
+  const handleHome = () => {
+    feedback.onButtonPress();
+    onHome();
   };
 
   return (
@@ -278,6 +296,12 @@ export function GameOverOverlay({
             onPressOut={handlePressOut}
           >
             <Text style={styles.playAgainText}>Play Again</Text>
+          </Pressable>
+        </Animated.View>
+
+        <Animated.View style={[styles.homeButtonContainer, homeButtonStyle]}>
+          <Pressable style={styles.homeButton} onPress={handleHome}>
+            <Text style={styles.homeButtonText}>Home</Text>
           </Pressable>
         </Animated.View>
 
@@ -435,6 +459,19 @@ const styles = StyleSheet.create({
     color: Colors.background,
     textTransform: 'uppercase',
     letterSpacing: 3,
+  },
+  homeButtonContainer: {
+    marginTop: 20,
+  },
+  homeButton: {
+    paddingHorizontal: 30,
+    paddingVertical: 12,
+  },
+  homeButtonText: {
+    fontSize: 16,
+    color: Colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 2,
   },
   removeAdsContainer: {
     marginTop: 30,

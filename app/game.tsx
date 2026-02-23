@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGame } from '../contexts/GameContext';
 import { usePurchase } from '../contexts/PurchaseContext';
@@ -20,6 +21,7 @@ import { Colors, PieceColor } from '../utils/colors';
 import { calculateMultiplier, calculateTier } from '../utils/scoring';
 
 export default function GameScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { state } = useGame();
   const { isProUser, removeAdsPrice, purchaseRemoveAds } = usePurchase();
@@ -186,6 +188,11 @@ export default function GameScreen() {
     }
   }, [purchaseRemoveAds]);
 
+  // Handle going back to home
+  const onHome = useCallback(() => {
+    router.back();
+  }, [router]);
+
   const renderContent = () => {
     switch (state.status) {
       case 'countdown':
@@ -269,6 +276,7 @@ export default function GameScreen() {
               isNewHighScore={state.isNewHighScore}
               roundCoins={state.roundCoins}
               onPlayAgain={onPlayAgain}
+              onHome={onHome}
               rewardedReady={isRewardedReady}
               hasUsedContinue={state.hasUsedContinue}
               onContinue={onContinue}
