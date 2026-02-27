@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable, Alert, ActivityIndicator } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -19,6 +19,8 @@ import { CoinDisplay } from '../components/ui/CoinDisplay';
 import { Colors } from '../utils/colors';
 import { AD_UNIT_IDS } from '../utils/adConfig';
 import { SPRING_CONFIG } from '../hooks/useGameAnimations';
+import OnboardingScreen from '../components/OnboardingScreen';
+import { getOnboardingComplete, setOnboardingComplete } from '../utils/storage';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -27,6 +29,18 @@ export default function HomeScreen() {
   const { isProUser, removeAdsPrice, purchaseRemoveAds } = usePurchase();
   const feedback = useFeedback();
   const [isPurchasing, setIsPurchasing] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    getOnboardingComplete().then((done) => {
+      if (!done) setShowOnboarding(true);
+    });
+  }, []);
+
+  const handleOnboardingComplete = useCallback(async () => {
+    await setOnboardingComplete();
+    setShowOnboarding(false);
+  }, []);
 
   // Animation values
   const titleGlow = useSharedValue(0.5);
@@ -196,6 +210,9 @@ export default function HomeScreen() {
           />
         </View>
       )}
+
+      {/* First-launch onboarding */}
+      {showOnboarding && <OnboardingScreen onComplete={handleOnboardingComplete} />}
     </View>
   );
 }

@@ -6,6 +6,7 @@ const KEYS = {
   HIGH_SCORE: 'blitztap_high_score',
   TOTAL_COINS: 'blitztap_total_coins',
   SETTINGS: 'blitztap_settings',
+  ONBOARDING_COMPLETE: 'blitztap_onboarding_complete',
 } as const;
 
 export interface Settings {
@@ -83,5 +84,23 @@ export async function updateSettings(settings: Partial<Settings>): Promise<Setti
   } catch (error) {
     console.error('Error updating settings:', error);
     return DEFAULT_SETTINGS;
+  }
+}
+
+// Onboarding
+export async function getOnboardingComplete(): Promise<boolean> {
+  try {
+    const value = await AsyncStorage.getItem(KEYS.ONBOARDING_COMPLETE);
+    return value === 'true';
+  } catch {
+    return false;
+  }
+}
+
+export async function setOnboardingComplete(): Promise<void> {
+  try {
+    await AsyncStorage.setItem(KEYS.ONBOARDING_COMPLETE, 'true');
+  } catch (error) {
+    console.error('Error saving onboarding state:', error);
   }
 }
