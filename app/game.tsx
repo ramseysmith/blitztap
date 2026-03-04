@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, Alert, AppStateStatus, Pressable } from 'react-native';
+import { View, StyleSheet, Alert, AppStateStatus } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGame } from '../contexts/GameContext';
@@ -21,7 +21,7 @@ import { TierTransition } from '../components/game/TierTransition';
 import { StreakMilestone } from '../components/game/StreakMilestone';
 import { Colors, PieceColor } from '../utils/colors';
 import { calculateMultiplier, calculateTier } from '../utils/scoring';
-import { getHasPlayedBefore, setHasPlayedBefore, getLastReviewGame, setLastReviewGame } from '../utils/storage';
+import { getLastReviewGame, setLastReviewGame } from '../utils/storage';
 import { recordGameResult } from '../utils/stats';
 
 // Dev-only FPS counter
@@ -37,8 +37,6 @@ try {
 } catch {
   // Not installed yet
 }
-
-const FIRST_TIME_TAPS = 3;
 
 export default function GameScreen() {
   const router = useRouter();
@@ -60,13 +58,6 @@ export default function GameScreen() {
   const [isPaused, setIsPaused] = useState(false);
   const [pendingResume, setPendingResume] = useState(false); // show countdown after resume tap
 
-  // First-time tutorial
-  const [isFirstTime, setIsFirstTime] = useState(false);
-  const [showTutorialOverlay, setShowTutorialOverlay] = useState(false);
-  const [showNiceOverlay, setShowNiceOverlay] = useState(false);
-  const [firstTimeGameDone, setFirstTimeGameDone] = useState(false);
-  const firstTapNiceShown = useRef(false);
-
   // Session tracking for stats
   const gameStartTimeRef = useRef<number>(0);
   const sessionShapeTapsRef = useRef<Record<string, number>>({});
@@ -86,16 +77,6 @@ export default function GameScreen() {
 
   const { startGame, startCountdown, handleTap, playAgain, continueGame, pauseTimer, resumeTimer, timeProgress } =
     useGameEngine({ onTimeout });
-
-  // ─── First-time check on mount ───
-  useEffect(() => {
-    getHasPlayedBefore().then((done) => {
-      if (!done) {
-        setIsFirstTime(true);
-        setShowTutorialOverlay(true);
-      }
-    });
-  }, []);
 
   // ─── App state (pause/resume) ───
   const handleAppStateChange = useCallback((nextState: AppStateStatus) => {
@@ -119,13 +100,12 @@ export default function GameScreen() {
 
   // ─── Start countdown when screen mounts ───
   useEffect(() => {
-    if (isFirstTime) return; // Wait for tutorial overlay to close
     startCountdown();
     return () => {
       animations.resetAnimations();
       feedback.stopAllSounds();
     };
-  }, [startCountdown, isFirstTime]);
+  }, [startCountdown]);
 
   // ─── Cleanup on unmount ───
   useEffect(() => {
@@ -218,12 +198,6 @@ export default function GameScreen() {
         shapeTaps: sessionShapeTapsRef.current,
       });
 
-      // Mark first time game done
-      if (isFirstTime && !firstTimeGameDone) {
-        setFirstTimeGameDone(true);
-        setHasPlayedBefore();
-      }
-
       // Review prompt (after meaningful engagement)
       maybeRequestReview(state.score, state.roundsPlayedThisSession);
     }
@@ -248,14 +222,7 @@ export default function GameScreen() {
         feedback.onCorrectTap();
         animations.animateCorrectTap();
 
-        // First-time: show "Nice!" on first correct tap
-        if (isFirstTime && !firstTapNiceShown.current) {
-          firstTapNiceShown.current = true;
-          setShowNiceOverlay(true);
-          setTimeout(() => setShowNiceOverlay(false), 1200);
-        }
-
-        setTimeout(() => setCorrectOptionId(null), 200);
+          setTimeout(() => setCorrectOptionId(null), 200);
         handleTap(optionId);
       } else {
         setWrongOptionId(optionId);
@@ -270,7 +237,7 @@ export default function GameScreen() {
         }, 1100);
       }
     },
-    [state.options, state.target, feedback, animations, handleTap, isTimedOut, isPaused, isFirstTime]
+    [state.options, state.target, feedback, animations, handleTap, isTimedOut, isPaused]
   );
 
   // ─── Play again ───
@@ -278,10 +245,9 @@ export default function GameScreen() {
     if (shouldShowInterstitial(state.roundsPlayedThisSession)) {
       await showInterstitial();
     }
-    const taps = isFirstTime && !firstTimeGameDone ? 0 : undefined;
-    playAgain(taps);
+    playAgain();
     setIsPaused(false);
-  }, [playAgain, shouldShowInterstitial, showInterstitial, state.roundsPlayedThisSession, isFirstTime, firstTimeGameDone]);
+  }, [playAgain, shouldShowInterstitial, showInterstitial, state.roundsPlayedThisSession]);
 
   // ─── Continue (rewarded ad) ───
   const onContinue = useCallback(async () => {
@@ -316,12 +282,6 @@ export default function GameScreen() {
     setPendingResume(false);
     resumeTimer();
   }, [resumeTimer]);
-
-  // ─── Tutorial overlay close ───
-  const onTutorialClose = useCallback(() => {
-    setShowTutorialOverlay(false);
-    startCountdown(FIRST_TIME_TAPS);
-  }, [startCountdown]);
 
   const renderContent = () => {
     // Show resume countdown after player taps resume
@@ -388,13 +348,6 @@ export default function GameScreen() {
                 colorValue={animations.screenGlowColor}
               />
 
-              {/* First-time "Nice!" flash */}
-              {showNiceOverlay && (
-                <View style={styles.niceOverlay} pointerEvents="none">
-                  <Text style={styles.niceText}>Nice! 🎉</Text>
-                </View>
-              )}
-
               {/* Pause overlay */}
               {isPaused && <PauseOverlay score={state.score} onResume={onResume} />}
             </View>
@@ -403,7 +356,6 @@ export default function GameScreen() {
 
       case 'gameover': {
         const tier = calculateTier(state.score);
-        const isFirstTimeFirstGame = isFirstTime && !firstTimeGameDone && state.score < 5;
         return (
           <View style={styles.gameContainer}>
             <TimerBar timeProgress={timeProgress} />
@@ -432,7 +384,7 @@ export default function GameScreen() {
               roundCoins={Math.max(0, state.roundCoins)}
               onPlayAgain={onPlayAgain}
               onHome={onHome}
-              rewardedReady={isRewardedReady && !isFirstTimeFirstGame}
+              rewardedReady={isRewardedReady}
               hasUsedContinue={state.hasUsedContinue}
               onContinue={onContinue}
               onRemoveAds={onRemoveAds}
@@ -458,29 +410,6 @@ export default function GameScreen() {
       ]}
     >
       {renderContent()}
-
-      {/* First-time tutorial overlay */}
-      {showTutorialOverlay && (
-        <View style={styles.tutorialOverlay}>
-          <View style={styles.tutorialCard}>
-            <Text style={styles.tutorialTitle}>How to Play</Text>
-            <View style={styles.tutorialRow}>
-              <Text style={styles.tutorialArrow}>👆</Text>
-              <Text style={styles.tutorialText}>
-                {'A shape appears at the top.\nTap the matching shape in the grid\nbefore time runs out!'}
-              </Text>
-            </View>
-            <Pressable
-              style={styles.tutorialButton}
-              onPress={onTutorialClose}
-              accessibilityRole="button"
-              accessibilityLabel="Got it, start game"
-            >
-              <Text style={styles.tutorialButtonText}>Got it!</Text>
-            </Pressable>
-          </View>
-        </View>
-      )}
 
       {/* Dev FPS counter */}
       {__DEV__ && FpsCounter && <FpsCounter />}
@@ -515,71 +444,5 @@ const styles = StyleSheet.create({
   },
   gameContainer: {
     flex: 1,
-  },
-  niceOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-    pointerEvents: 'none',
-  },
-  niceText: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    color: Colors.success,
-    textShadowColor: Colors.success,
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 20,
-    letterSpacing: 2,
-  },
-  tutorialOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(15, 15, 35, 0.94)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 200,
-  },
-  tutorialCard: {
-    backgroundColor: Colors.backgroundLight,
-    borderRadius: 24,
-    padding: 32,
-    marginHorizontal: 32,
-    alignItems: 'center',
-  },
-  tutorialTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: Colors.textPrimary,
-    marginBottom: 24,
-    letterSpacing: 2,
-  },
-  tutorialRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 32,
-    gap: 16,
-  },
-  tutorialArrow: {
-    fontSize: 32,
-    marginTop: 4,
-  },
-  tutorialText: {
-    flex: 1,
-    fontSize: 17,
-    color: Colors.textSecondary,
-    lineHeight: 26,
-  },
-  tutorialButton: {
-    backgroundColor: Colors.accent,
-    paddingHorizontal: 48,
-    paddingVertical: 16,
-    borderRadius: 30,
-    minWidth: 160,
-    alignItems: 'center',
-  },
-  tutorialButtonText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: Colors.background,
-    letterSpacing: 2,
   },
 });

@@ -10,9 +10,6 @@ import { setHighScore, addCoins } from '../utils/storage';
 // Grace period before timeout fires (ms) — accounts for animation frame delays
 const TIMEOUT_GRACE_MS = 50;
 
-// First-time tutorial: use 5s per tap instead of standard time
-const FIRST_TIME_TAP_DURATION_S = 5;
-
 interface UseGameEngineOptions {
   onTimeout?: () => void;
 }
@@ -186,10 +183,7 @@ export function useGameEngine(options?: UseGameEngineOptions) {
 
   // Start game (called after countdown)
   const startGame = useCallback(() => {
-    const currentState = stateRef.current;
-    // Use extended time if first-time taps remain
-    const useFirstTimeTimer = currentState.firstTimeTapsRemaining > 0;
-    const round = generateRound(0, useFirstTimeTimer ? FIRST_TIME_TAP_DURATION_S : undefined);
+    const round = generateRound(0);
     dispatch({
       type: 'START_GAME',
       payload: {
@@ -203,11 +197,8 @@ export function useGameEngine(options?: UseGameEngineOptions) {
   }, [dispatch]);
 
   // Start countdown
-  const startCountdown = useCallback((firstTimeTapsRemaining?: number) => {
-    dispatch({
-      type: 'START_COUNTDOWN',
-      payload: firstTimeTapsRemaining !== undefined ? { firstTimeTapsRemaining } : undefined,
-    });
+  const startCountdown = useCallback(() => {
+    dispatch({ type: 'START_COUNTDOWN' });
   }, [dispatch]);
 
   // Handle tap on an option
@@ -234,8 +225,7 @@ export function useGameEngine(options?: UseGameEngineOptions) {
       const newScore = currentState.score + 1;
       const newStreak = currentState.streak + 1;
       const newMultiplier = calculateMultiplier(newStreak);
-      const useFirstTimeTimer = currentState.firstTimeTapsRemaining > 1; // >1 because we haven't decremented yet
-      const round = generateRound(newScore, useFirstTimeTimer ? FIRST_TIME_TAP_DURATION_S : undefined);
+      const round = generateRound(newScore);
 
       dispatch({
         type: 'CORRECT_TAP',
@@ -288,10 +278,10 @@ export function useGameEngine(options?: UseGameEngineOptions) {
   }, [dispatch, timeProgress]);
 
   // Play again (reset and start countdown)
-  const playAgain = useCallback((firstTimeTapsRemaining?: number) => {
+  const playAgain = useCallback(() => {
     resetGame();
     setTimeout(() => {
-      startCountdown(firstTimeTapsRemaining);
+      startCountdown();
     }, 50);
   }, [resetGame, startCountdown]);
 

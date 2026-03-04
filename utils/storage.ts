@@ -106,6 +106,7 @@ export async function setOnboardingComplete(): Promise<void> {
     console.error('Error saving onboarding state:', error);
   }
 }
+
 // Has Played Before (first-time tutorial flag)
 export async function getHasPlayedBefore(): Promise<boolean> {
   try {
