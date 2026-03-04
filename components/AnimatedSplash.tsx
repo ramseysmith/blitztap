@@ -121,7 +121,8 @@ const Triangle = ({ size, color }: { size: number; color: string }) => (
 );
 
 // ============================================================
-// LIGHTNING BOLT SVG-LIKE COMPONENT
+// LIGHTNING BOLT COMPONENT
+// Two skewed parallelograms — upper-right arm + lower-left arm
 // ============================================================
 const LightningBolt = ({ size, progress }: { size: number; progress: Animated.SharedValue<number> }) => {
   const animStyle = useAnimatedStyle(() => ({
@@ -134,53 +135,61 @@ const LightningBolt = ({ size, progress }: { size: number; progress: Animated.Sh
     transform: [{ scale: interpolate(progress.value, [0, 0.5, 1], [0.3, 1.4, 1.2]) }],
   }));
 
-  const boltWidth = size * 0.45;
-  const boltHeight = size;
+  // The bolt body is a container within which two arms are absolutely placed.
+  // Both arms use skewX to lean left, mimicking the classic ⚡ diagonal.
+  // Upper arm sits top-right; lower arm sits bottom-left.
+  // The resulting negative space in the middle creates the characteristic zigzag notch.
+  const boxW = size * 0.68;
+  const boxH = size * 0.9;
+  const upperW = size * 0.46;
+  const upperH = boxH * 0.56;
+  const lowerW = size * 0.38;
+  const lowerH = boxH * 0.56;
+  const radius = size * 0.05;
 
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
       {/* Glow behind bolt */}
       <Animated.View
-        style={[
-          {
-            position: 'absolute',
-            width: size * 1.5,
-            height: size * 1.5,
-            borderRadius: size * 0.75,
-            backgroundColor: 'rgba(0, 212, 255, 0.15)',
-          },
-          glowStyle,
-        ]}
+        style={[{
+          position: 'absolute',
+          width: size * 1.5,
+          height: size * 1.5,
+          borderRadius: size * 0.75,
+          backgroundColor: 'rgba(0, 212, 255, 0.15)',
+        }, glowStyle]}
       />
-      {/* Bolt shape using stacked views */}
-      <Animated.View style={[{ alignItems: 'center', justifyContent: 'center' }, animStyle]}>
-        {/* Top part of bolt */}
+
+      {/* Bolt arms */}
+      <Animated.View style={[{ width: boxW, height: boxH }, animStyle]}>
+        {/* Upper arm: top-right, leans left */}
         <View
           style={{
-            width: 0,
-            height: 0,
-            borderLeftWidth: boltWidth * 0.15,
-            borderRightWidth: boltWidth * 0.85,
-            borderBottomWidth: boltHeight * 0.45,
-            borderLeftColor: 'transparent',
-            borderRightColor: 'transparent',
-            borderBottomColor: COLORS.white,
-            transform: [{ rotate: '180deg' }, { translateX: boltWidth * 0.15 }],
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            width: upperW,
+            height: upperH,
+            backgroundColor: COLORS.white,
+            borderTopRightRadius: radius,
+            borderTopLeftRadius: radius * 0.4,
+            borderBottomRightRadius: radius * 0.4,
+            transform: [{ skewX: '-18deg' }],
           }}
         />
-        {/* Bottom part of bolt */}
+        {/* Lower arm: bottom-left, leans left */}
         <View
           style={{
-            width: 0,
-            height: 0,
-            borderLeftWidth: boltWidth * 0.85,
-            borderRightWidth: boltWidth * 0.15,
-            borderBottomWidth: boltHeight * 0.45,
-            borderLeftColor: 'transparent',
-            borderRightColor: 'transparent',
-            borderBottomColor: COLORS.white,
-            marginTop: -boltHeight * 0.08,
-            transform: [{ translateX: -boltWidth * 0.15 }],
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            width: lowerW,
+            height: lowerH,
+            backgroundColor: COLORS.white,
+            borderBottomLeftRadius: radius,
+            borderBottomRightRadius: radius * 0.4,
+            borderTopLeftRadius: radius * 0.4,
+            transform: [{ skewX: '-18deg' }],
           }}
         />
       </Animated.View>

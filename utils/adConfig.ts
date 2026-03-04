@@ -33,12 +33,12 @@ export const REVENUECAT_CONFIG = {
   API_KEY: 'appl_nnxSzOZehJLQOVQQTeHgOraPrUm',
 
   // Entitlement identifier for "Remove Ads" purchase
-  REMOVE_ADS_ENTITLEMENT: 'remove_ads',
+  REMOVE_ADS_ENTITLEMENT: 'blitztap_no_ads',
 
   // Product identifier for "Remove Ads" in-app purchase
   REMOVE_ADS_PRODUCT: Platform.select({
-    ios: 'com.ramseysmith.blitztap.removeads',
-    android: 'com.ramseysmith.blitztap.removeads',
+    ios: 'blitztap_premium',
+    android: 'blitztap_premium',
   }) as string,
 };
 
