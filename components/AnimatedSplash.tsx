@@ -13,6 +13,7 @@ import Animated, {
   interpolateColor,
   runOnJS,
 } from 'react-native-reanimated';
+import { useAccessibility } from '../contexts/AccessibilityContext';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // ============================================================
@@ -302,6 +303,7 @@ interface AnimatedSplashProps {
 }
 
 export default function AnimatedSplash({ onAnimationComplete }: AnimatedSplashProps) {
+  const { reduceMotion } = useAccessibility();
   // Shape entrance animations (fly in from edges)
   const circleProgress = useSharedValue(0);   // top left
   const squareProgress = useSharedValue(0);   // top right
@@ -344,6 +346,16 @@ export default function AnimatedSplash({ onAnimationComplete }: AnimatedSplashPr
   const SHAPE_SPACING = 52;
 
   useEffect(() => {
+    // ==============================
+    // REDUCE MOTION: skip straight to home
+    // ==============================
+    if (reduceMotion) {
+      const timer = setTimeout(() => {
+        onAnimationComplete();
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+
     // ==============================
     // TIMELINE
     // ==============================
@@ -414,7 +426,7 @@ export default function AnimatedSplash({ onAnimationComplete }: AnimatedSplashPr
     }, 3600);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [reduceMotion]);
 
   // ============================================================
   // ANIMATED STYLES

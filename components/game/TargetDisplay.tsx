@@ -10,8 +10,13 @@ interface TargetDisplayProps {
 }
 
 export function TargetDisplay({ color, shape }: TargetDisplayProps) {
+  const shapeLabel = shape ? `${color} ${shape}` : color;
   return (
-    <View style={styles.container}>
+    <View
+      style={styles.container}
+      accessible
+      accessibilityLabel={`Match target: ${shapeLabel}`}
+    >
       <Text style={styles.label}>Match this!</Text>
       <View style={styles.targetWrapper}>
         <ShapeRenderer

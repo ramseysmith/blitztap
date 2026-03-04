@@ -10,6 +10,7 @@ import {
   runOnJS,
   Easing,
 } from 'react-native-reanimated';
+import { useAccessibility } from '../contexts/AccessibilityContext';
 
 // Spring config for snappy game feel
 export const SPRING_CONFIG = {
@@ -25,6 +26,7 @@ export const SPRING_BOUNCY = {
 };
 
 export function useGameAnimations() {
+  const { reduceMotion } = useAccessibility();
   // Score animation
   const scoreScale = useSharedValue(1);
   const scoreBump = useSharedValue(0);
@@ -58,6 +60,13 @@ export function useGameAnimations() {
   // Animate correct tap effects
   const animateCorrectTap = useCallback(() => {
     'worklet';
+    if (reduceMotion) {
+      // Keep functional score bump but skip decorative spring
+      scoreScale.value = 1;
+      scoreBump.value = 0;
+      gridDimOpacity.value = 1;
+      return;
+    }
     // Score bump
     scoreBump.value = withSequence(
       withTiming(-5, { duration: 80 }),
@@ -73,11 +82,12 @@ export function useGameAnimations() {
       withTiming(0.4, { duration: 80 }),
       withTiming(1, { duration: 150 })
     );
-  }, [scoreBump, scoreScale, gridDimOpacity]);
+  }, [scoreBump, scoreScale, gridDimOpacity, reduceMotion]);
 
   // Animate multiplier change
   const animateMultiplierChange = useCallback(() => {
     'worklet';
+    if (reduceMotion) return;
     multiplierScale.value = withSequence(
       withSpring(1.5, SPRING_BOUNCY),
       withSpring(1, SPRING_CONFIG)
@@ -86,11 +96,12 @@ export function useGameAnimations() {
       withTiming(1, { duration: 150 }),
       withTiming(0, { duration: 300 })
     );
-  }, [multiplierScale, multiplierGlow]);
+  }, [multiplierScale, multiplierGlow, reduceMotion]);
 
   // Animate wrong tap effects
   const animateWrongTap = useCallback(() => {
     'worklet';
+    if (reduceMotion) return; // Skip shake and glow entirely
     // Screen shake
     screenShakeX.value = withSequence(
       withTiming(4, { duration: 40 }),
@@ -106,11 +117,12 @@ export function useGameAnimations() {
       withTiming(0.6, { duration: 100 }),
       withTiming(0, { duration: 200 })
     );
-  }, [screenShakeX, screenGlowOpacity, screenGlowColor]);
+  }, [screenShakeX, screenGlowOpacity, screenGlowColor, reduceMotion]);
 
   // Animate timeout
   const animateTimeout = useCallback(() => {
     'worklet';
+    if (reduceMotion) return; // Skip pulsing glow
     screenGlowColor.value = 0; // red
     screenGlowOpacity.value = withSequence(
       withTiming(0.5, { duration: 80 }),
@@ -120,7 +132,7 @@ export function useGameAnimations() {
       withTiming(0.5, { duration: 80 }),
       withTiming(0, { duration: 200 })
     );
-  }, [screenGlowOpacity, screenGlowColor]);
+  }, [screenGlowOpacity, screenGlowColor, reduceMotion]);
 
   // Timer warning pulse (called when timer < 25%)
   const animateTimerWarning = useCallback((intensity: number) => {
@@ -131,6 +143,7 @@ export function useGameAnimations() {
 
   // Tier transition animation
   const animateTierTransition = useCallback((tier: number) => {
+    if (reduceMotion) return; // Skip decorative tier callout
     const texts = ['', '', 'TIER 2', 'TIER 3', 'TIER 4'];
     const colors = ['', '', '#4488FF', '#AA44FF', '#FFD700'];
     currentTierText.current = texts[tier] || '';
@@ -148,10 +161,11 @@ export function useGameAnimations() {
       withTiming(1, { duration: 150 }),
       withDelay(400, withTiming(0, { duration: 300 }))
     );
-  }, [tierTextScale, tierTextOpacity]);
+  }, [tierTextScale, tierTextOpacity, reduceMotion]);
 
   // Streak milestone animation
   const animateStreakMilestone = useCallback((streak: number) => {
+    if (reduceMotion) return; // Skip decorative streak callout and particles
     let text = '';
     if (streak === 5) text = 'ON FIRE!';
     else if (streak === 10) text = 'UNSTOPPABLE!';
@@ -176,7 +190,7 @@ export function useGameAnimations() {
       withTiming(1, { duration: 50 }),
       withDelay(500, withTiming(0, { duration: 100 }))
     );
-  }, [streakTextScale, streakTextOpacity, showParticles]);
+  }, [streakTextScale, streakTextOpacity, showParticles, reduceMotion]);
 
   // Reset all animations
   const resetAnimations = useCallback(() => {

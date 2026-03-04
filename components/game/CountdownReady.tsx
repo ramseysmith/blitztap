@@ -10,6 +10,7 @@ import Animated, {
 import { Colors } from '../../utils/colors';
 import { useFeedback } from '../../hooks/useFeedback';
 import { SPRING_BOUNCY } from '../../hooks/useGameAnimations';
+import { useAccessibility } from '../../contexts/AccessibilityContext';
 
 interface CountdownReadyProps {
   onComplete: () => void;
@@ -27,8 +28,32 @@ export function CountdownReady({ onComplete }: CountdownReadyProps) {
   const scale = useSharedValue(2);
   const opacity = useSharedValue(0);
   const feedback = useFeedback();
+  const { reduceMotion } = useAccessibility();
 
   useEffect(() => {
+    if (count > 0) {
+      feedback.onCountdownTick();
+    } else {
+      feedback.onCountdownGo();
+    }
+
+    if (reduceMotion) {
+      // Instant display: no animations, just advance the count quickly
+      scale.value = 1;
+      opacity.value = 1;
+
+      const timer = setTimeout(() => {
+        if (count > 0) {
+          setCount(count - 1);
+        } else {
+          opacity.value = 0;
+          onComplete();
+        }
+      }, count > 0 ? 400 : 200);
+
+      return () => clearTimeout(timer);
+    }
+
     // Reset animation values
     scale.value = 2;
     opacity.value = 0;
@@ -36,13 +61,6 @@ export function CountdownReady({ onComplete }: CountdownReadyProps) {
     // Animate in with spring
     scale.value = withSpring(1, SPRING_BOUNCY);
     opacity.value = withTiming(1, { duration: 200 });
-
-    // Haptic and sound feedback
-    if (count > 0) {
-      feedback.onCountdownTick();
-    } else {
-      feedback.onCountdownGo();
-    }
 
     if (count > 0) {
       // Hold then fade out
@@ -72,7 +90,7 @@ export function CountdownReady({ onComplete }: CountdownReadyProps) {
 
       return () => clearTimeout(timer);
     }
-  }, [count]);
+  }, [count, reduceMotion]);
 
   const animatedStyle = useAnimatedStyle(() => {
     'worklet';

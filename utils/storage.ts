@@ -7,6 +7,8 @@ const KEYS = {
   TOTAL_COINS: 'blitztap_total_coins',
   SETTINGS: 'blitztap_settings',
   ONBOARDING_COMPLETE: 'blitztap_onboarding_complete',
+  HAS_PLAYED_BEFORE: 'blitztap_has_played_before',
+  LAST_REVIEW_GAME: 'blitztap_last_review_game',
 } as const;
 
 export interface Settings {
@@ -102,5 +104,40 @@ export async function setOnboardingComplete(): Promise<void> {
     await AsyncStorage.setItem(KEYS.ONBOARDING_COMPLETE, 'true');
   } catch (error) {
     console.error('Error saving onboarding state:', error);
+  }
+}
+// Has Played Before (first-time tutorial flag)
+export async function getHasPlayedBefore(): Promise<boolean> {
+  try {
+    const value = await AsyncStorage.getItem(KEYS.HAS_PLAYED_BEFORE);
+    return value === 'true';
+  } catch {
+    return false;
+  }
+}
+
+export async function setHasPlayedBefore(): Promise<void> {
+  try {
+    await AsyncStorage.setItem(KEYS.HAS_PLAYED_BEFORE, 'true');
+  } catch (error) {
+    console.error('Error saving hasPlayedBefore:', error);
+  }
+}
+
+// Review prompt tracking
+export async function getLastReviewGame(): Promise<number> {
+  try {
+    const value = await AsyncStorage.getItem(KEYS.LAST_REVIEW_GAME);
+    return value ? parseInt(value, 10) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export async function setLastReviewGame(gamesPlayed: number): Promise<void> {
+  try {
+    await AsyncStorage.setItem(KEYS.LAST_REVIEW_GAME, gamesPlayed.toString());
+  } catch (error) {
+    console.error('Error saving lastReviewGame:', error);
   }
 }

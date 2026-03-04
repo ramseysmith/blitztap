@@ -75,6 +75,9 @@ export default function SettingsScreen() {
             trackColor={{ false: Colors.backgroundLight, true: Colors.accent }}
             thumbColor="#FFFFFF"
             ios_backgroundColor={Colors.backgroundLight}
+            accessibilityLabel="Sound effects"
+            accessibilityRole="switch"
+            accessibilityState={{ checked: settings.soundEnabled }}
           />
         </View>
 
@@ -92,6 +95,9 @@ export default function SettingsScreen() {
             trackColor={{ false: Colors.backgroundLight, true: Colors.accent }}
             thumbColor="#FFFFFF"
             ios_backgroundColor={Colors.backgroundLight}
+            accessibilityLabel="Haptic feedback"
+            accessibilityRole="switch"
+            accessibilityState={{ checked: settings.hapticsEnabled }}
           />
         </View>
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { View, StyleSheet, Alert } from 'react-native';
+import { View, Text, StyleSheet, Alert, AppStateStatus, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGame } from '../contexts/GameContext';
@@ -8,17 +8,37 @@ import { useGameEngine } from '../hooks/useGameEngine';
 import { useFeedback } from '../hooks/useFeedback';
 import { useGameAnimations } from '../hooks/useGameAnimations';
 import { useAds } from '../hooks/useAds';
+import { useAppState } from '../hooks/useAppState';
 import { TimerBar } from '../components/game/TimerBar';
 import { TargetDisplay } from '../components/game/TargetDisplay';
 import { ScoreDisplay } from '../components/game/ScoreDisplay';
 import { GameBoard } from '../components/game/GameBoard';
 import { CountdownReady } from '../components/game/CountdownReady';
 import { GameOverOverlay } from '../components/game/GameOverOverlay';
+import { PauseOverlay } from '../components/game/PauseOverlay';
 import { ScreenGlow, ScreenShakeContainer } from '../components/game/ScreenEffects';
 import { TierTransition } from '../components/game/TierTransition';
 import { StreakMilestone } from '../components/game/StreakMilestone';
 import { Colors, PieceColor } from '../utils/colors';
 import { calculateMultiplier, calculateTier } from '../utils/scoring';
+import { getHasPlayedBefore, setHasPlayedBefore, getLastReviewGame, setLastReviewGame } from '../utils/storage';
+import { recordGameResult } from '../utils/stats';
+
+// Dev-only FPS counter
+let FpsCounter: React.ComponentType | null = null;
+if (__DEV__) {
+  FpsCounter = require('../components/game/FpsCounter').FpsCounter;
+}
+
+// Optional expo-store-review (installed separately)
+let StoreReview: { isAvailableAsync: () => Promise<boolean>; requestReview: () => Promise<void> } | null = null;
+try {
+  StoreReview = require('expo-store-review');
+} catch {
+  // Not installed yet
+}
+
+const FIRST_TIME_TAPS = 3;
 
 export default function GameScreen() {
   const router = useRouter();
@@ -36,6 +56,21 @@ export default function GameScreen() {
   const [isTimedOut, setIsTimedOut] = useState(false);
   const [isPurchasing, setIsPurchasing] = useState(false);
 
+  // Pause state (app backgrounded during play)
+  const [isPaused, setIsPaused] = useState(false);
+  const [pendingResume, setPendingResume] = useState(false); // show countdown after resume tap
+
+  // First-time tutorial
+  const [isFirstTime, setIsFirstTime] = useState(false);
+  const [showTutorialOverlay, setShowTutorialOverlay] = useState(false);
+  const [showNiceOverlay, setShowNiceOverlay] = useState(false);
+  const [firstTimeGameDone, setFirstTimeGameDone] = useState(false);
+  const firstTapNiceShown = useRef(false);
+
+  // Session tracking for stats
+  const gameStartTimeRef = useRef<number>(0);
+  const sessionShapeTapsRef = useRef<Record<string, number>>({});
+
   // Track previous values for detecting changes
   const prevTierRef = useRef<1 | 2 | 3 | 4>(1);
   const prevStreakRef = useRef(0);
@@ -49,21 +84,58 @@ export default function GameScreen() {
     feedback.onTimeout();
   }, [animations, feedback]);
 
-  const { startGame, startCountdown, handleTap, playAgain, continueGame, timeProgress } =
-    useGameEngine({
-      onTimeout,
-    });
+  const { startGame, startCountdown, handleTap, playAgain, continueGame, pauseTimer, resumeTimer, timeProgress } =
+    useGameEngine({ onTimeout });
 
-  // Start countdown when screen mounts
+  // ─── First-time check on mount ───
   useEffect(() => {
+    getHasPlayedBefore().then((done) => {
+      if (!done) {
+        setIsFirstTime(true);
+        setShowTutorialOverlay(true);
+      }
+    });
+  }, []);
+
+  // ─── App state (pause/resume) ───
+  const handleAppStateChange = useCallback((nextState: AppStateStatus) => {
+    if (nextState === 'background' || nextState === 'inactive') {
+      // Pause game timer if actively playing
+      if (state.status === 'playing' && !isPaused) {
+        pauseTimer();
+        setIsPaused(true);
+      }
+      // Cancel countdown if backgrounded during countdown
+      if (state.status === 'countdown') {
+        // We'll restart countdown when they come back
+        setPendingResume(true);
+      }
+      // Stop sounds
+      feedback.stopAllSounds();
+    }
+  }, [state.status, isPaused, pauseTimer, feedback]);
+
+  useAppState(handleAppStateChange);
+
+  // ─── Start countdown when screen mounts ───
+  useEffect(() => {
+    if (isFirstTime) return; // Wait for tutorial overlay to close
     startCountdown();
     return () => {
       animations.resetAnimations();
       feedback.stopAllSounds();
     };
-  }, [startCountdown]);
+  }, [startCountdown, isFirstTime]);
 
-  // Detect tier changes
+  // ─── Cleanup on unmount ───
+  useEffect(() => {
+    return () => {
+      animations.resetAnimations();
+      feedback.stopAllSounds();
+    };
+  }, []);
+
+  // ─── Detect tier changes ───
   useEffect(() => {
     if (state.status === 'playing') {
       const currentTier = calculateTier(state.score);
@@ -75,13 +147,11 @@ export default function GameScreen() {
     }
   }, [state.score, state.status, animations, feedback]);
 
-  // Detect streak milestones
+  // ─── Detect streak milestones ───
   useEffect(() => {
     if (state.status === 'playing') {
       const streak = state.streak;
       const prevStreak = prevStreakRef.current;
-
-      // Check if we just crossed a milestone
       if (
         (streak === 5 && prevStreak < 5) ||
         (streak === 10 && prevStreak < 10) ||
@@ -94,7 +164,7 @@ export default function GameScreen() {
     }
   }, [state.streak, state.status, animations, feedback]);
 
-  // Detect multiplier changes
+  // ─── Detect multiplier changes ───
   useEffect(() => {
     if (state.status === 'playing') {
       const multiplier = calculateMultiplier(state.streak);
@@ -105,7 +175,7 @@ export default function GameScreen() {
     }
   }, [state.streak, state.status, animations]);
 
-  // Reset animation state when game resets
+  // ─── Reset animation state on countdown ───
   useEffect(() => {
     if (state.status === 'countdown') {
       setCorrectOptionId(null);
@@ -115,85 +185,154 @@ export default function GameScreen() {
       prevTierRef.current = 1;
       prevStreakRef.current = 0;
       prevMultiplierRef.current = 1;
+      sessionShapeTapsRef.current = {};
     }
   }, [state.status]);
 
-  // Handle tap with feedback and animations
+  // ─── Track game start time ───
+  useEffect(() => {
+    if (state.status === 'playing' && gameStartTimeRef.current === 0) {
+      gameStartTimeRef.current = Date.now();
+    }
+    if (state.status === 'countdown') {
+      gameStartTimeRef.current = 0;
+    }
+  }, [state.status]);
+
+  // ─── Record stats + review prompt on game over ───
+  useEffect(() => {
+    if (state.status === 'gameover') {
+      const timePlayed = gameStartTimeRef.current > 0
+        ? (Date.now() - gameStartTimeRef.current) / 1000
+        : 0;
+      gameStartTimeRef.current = 0;
+
+      const tier = calculateTier(state.score);
+      recordGameResult({
+        score: Math.max(0, state.score),
+        correctTaps: Math.max(0, state.score),
+        maxStreak: Math.max(0, state.maxStreak),
+        tier,
+        coinsEarned: Math.max(0, state.roundCoins),
+        timePlayed,
+        shapeTaps: sessionShapeTapsRef.current,
+      });
+
+      // Mark first time game done
+      if (isFirstTime && !firstTimeGameDone) {
+        setFirstTimeGameDone(true);
+        setHasPlayedBefore();
+      }
+
+      // Review prompt (after meaningful engagement)
+      maybeRequestReview(state.score, state.roundsPlayedThisSession);
+    }
+  }, [state.status]);
+
+  // ─── Handle tap with feedback and animations ───
   const onTap = useCallback(
     async (optionId: string) => {
-      if (isTimedOut) return;
+      if (isTimedOut || isPaused) return;
 
       const tappedOption = state.options.find((opt) => opt.id === optionId);
       if (!tappedOption) return;
 
       if (tappedOption.isCorrect) {
-        // Correct tap
+        // Track for stats
+        if (state.target) {
+          const key = `${state.target.color}_${state.target.shape ?? 'circle'}`;
+          sessionShapeTapsRef.current[key] = (sessionShapeTapsRef.current[key] ?? 0) + 1;
+        }
+
         setCorrectOptionId(optionId);
         feedback.onCorrectTap();
         animations.animateCorrectTap();
 
-        // Clear after animation
-        setTimeout(() => {
-          setCorrectOptionId(null);
-        }, 200);
+        // First-time: show "Nice!" on first correct tap
+        if (isFirstTime && !firstTapNiceShown.current) {
+          firstTapNiceShown.current = true;
+          setShowNiceOverlay(true);
+          setTimeout(() => setShowNiceOverlay(false), 1200);
+        }
 
+        setTimeout(() => setCorrectOptionId(null), 200);
         handleTap(optionId);
       } else {
-        // Wrong tap
         setWrongOptionId(optionId);
         feedback.onWrongTap();
         animations.animateWrongTap();
 
-        // Show correct answer after shake
-        setTimeout(() => {
-          setShowCorrectReveal(true);
-        }, 300);
+        setTimeout(() => setShowCorrectReveal(true), 300);
 
         // Delay game over to show correct answer
         setTimeout(() => {
           handleTap(optionId);
-        }, 1100); // 300ms shake + 800ms reveal
+        }, 1100);
       }
     },
-    [state.options, feedback, animations, handleTap, isTimedOut]
+    [state.options, state.target, feedback, animations, handleTap, isTimedOut, isPaused, isFirstTime]
   );
 
-  // Handle play again with interstitial ad
+  // ─── Play again ───
   const onPlayAgain = useCallback(async () => {
-    // Check if we should show an interstitial
     if (shouldShowInterstitial(state.roundsPlayedThisSession)) {
       await showInterstitial();
     }
-    playAgain();
-  }, [playAgain, shouldShowInterstitial, showInterstitial, state.roundsPlayedThisSession]);
+    const taps = isFirstTime && !firstTimeGameDone ? 0 : undefined;
+    playAgain(taps);
+    setIsPaused(false);
+  }, [playAgain, shouldShowInterstitial, showInterstitial, state.roundsPlayedThisSession, isFirstTime, firstTimeGameDone]);
 
-  // Handle continue (watch rewarded ad to keep playing)
+  // ─── Continue (rewarded ad) ───
   const onContinue = useCallback(async () => {
     const rewarded = await showRewarded();
     if (rewarded) {
-      // User watched the ad - continue game
       continueGame();
     }
-    // If not rewarded (user dismissed), stay on game over screen
   }, [showRewarded, continueGame]);
 
-  // Handle remove ads purchase
+  // ─── Remove ads purchase ───
   const onRemoveAds = useCallback(async () => {
     setIsPurchasing(true);
     const result = await purchaseRemoveAds();
     setIsPurchasing(false);
-
     if (result.message) {
       Alert.alert(result.success ? 'Success' : 'Purchase', result.message);
     }
   }, [purchaseRemoveAds]);
 
-  // Handle going back to home
+  // ─── Home ───
   const onHome = useCallback(() => {
     router.back();
   }, [router]);
 
+  // ─── Pause overlay resume ───
+  const onResume = useCallback(() => {
+    setIsPaused(false);
+    setPendingResume(true); // trigger countdown before resuming timer
+  }, []);
+
+  const onResumeCountdownComplete = useCallback(() => {
+    setPendingResume(false);
+    resumeTimer();
+  }, [resumeTimer]);
+
+  // ─── Tutorial overlay close ───
+  const onTutorialClose = useCallback(() => {
+    setShowTutorialOverlay(false);
+    startCountdown(FIRST_TIME_TAPS);
+  }, [startCountdown]);
+
   const renderContent = () => {
+    // Show resume countdown after player taps resume
+    if (pendingResume) {
+      return (
+        <View style={styles.gameContainer}>
+          <CountdownReady onComplete={onResumeCountdownComplete} />
+        </View>
+      );
+    }
+
     switch (state.status) {
       case 'countdown':
         return <CountdownReady onComplete={startGame} />;
@@ -205,8 +344,8 @@ export default function GameScreen() {
               <TimerBar timeProgress={timeProgress} />
 
               <ScoreDisplay
-                score={state.score}
-                streak={state.streak}
+                score={Math.max(0, state.score)}
+                streak={Math.max(0, state.streak)}
                 multiplier={state.multiplier}
                 scoreScale={animations.scoreScale}
                 scoreBump={animations.scoreBump}
@@ -226,7 +365,7 @@ export default function GameScreen() {
                 correctOptionId={correctOptionId}
                 wrongOptionId={wrongOptionId}
                 showCorrectReveal={showCorrectReveal}
-                disabled={wrongOptionId !== null || isTimedOut}
+                disabled={wrongOptionId !== null || isTimedOut || isPaused}
               />
 
               {/* Overlay effects */}
@@ -248,16 +387,32 @@ export default function GameScreen() {
                 opacity={animations.screenGlowOpacity}
                 colorValue={animations.screenGlowColor}
               />
+
+              {/* First-time "Nice!" flash */}
+              {showNiceOverlay && (
+                <View style={styles.niceOverlay} pointerEvents="none">
+                  <Text style={styles.niceText}>Nice! 🎉</Text>
+                </View>
+              )}
+
+              {/* Pause overlay */}
+              {isPaused && <PauseOverlay score={state.score} onResume={onResume} />}
             </View>
           </ScreenShakeContainer>
         );
 
-      case 'gameover':
+      case 'gameover': {
+        const tier = calculateTier(state.score);
+        const isFirstTimeFirstGame = isFirstTime && !firstTimeGameDone && state.score < 5;
         return (
           <View style={styles.gameContainer}>
             <TimerBar timeProgress={timeProgress} />
 
-            <ScoreDisplay score={state.score} streak={state.streak} multiplier={state.multiplier} />
+            <ScoreDisplay
+              score={Math.max(0, state.score)}
+              streak={Math.max(0, state.streak)}
+              multiplier={state.multiplier}
+            />
 
             {state.target && (
               <TargetDisplay color={state.target.color as PieceColor} shape={state.target.shape} />
@@ -272,21 +427,23 @@ export default function GameScreen() {
             />
 
             <GameOverOverlay
-              score={state.score}
+              score={Math.max(0, state.score)}
               isNewHighScore={state.isNewHighScore}
-              roundCoins={state.roundCoins}
+              roundCoins={Math.max(0, state.roundCoins)}
               onPlayAgain={onPlayAgain}
               onHome={onHome}
-              rewardedReady={isRewardedReady}
+              rewardedReady={isRewardedReady && !isFirstTimeFirstGame}
               hasUsedContinue={state.hasUsedContinue}
               onContinue={onContinue}
               onRemoveAds={onRemoveAds}
               isProUser={isProUser}
               removeAdsPrice={removeAdsPrice}
               isPurchasing={isPurchasing}
+              tier={tier}
             />
           </View>
         );
+      }
 
       default:
         return <CountdownReady onComplete={startGame} />;
@@ -297,15 +454,58 @@ export default function GameScreen() {
     <View
       style={[
         styles.container,
-        {
-          paddingTop: insets.top,
-          paddingBottom: insets.bottom,
-        },
+        { paddingTop: insets.top, paddingBottom: insets.bottom },
       ]}
     >
       {renderContent()}
+
+      {/* First-time tutorial overlay */}
+      {showTutorialOverlay && (
+        <View style={styles.tutorialOverlay}>
+          <View style={styles.tutorialCard}>
+            <Text style={styles.tutorialTitle}>How to Play</Text>
+            <View style={styles.tutorialRow}>
+              <Text style={styles.tutorialArrow}>👆</Text>
+              <Text style={styles.tutorialText}>
+                {'A shape appears at the top.\nTap the matching shape in the grid\nbefore time runs out!'}
+              </Text>
+            </View>
+            <Pressable
+              style={styles.tutorialButton}
+              onPress={onTutorialClose}
+              accessibilityRole="button"
+              accessibilityLabel="Got it, start game"
+            >
+              <Text style={styles.tutorialButtonText}>Got it!</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
+
+      {/* Dev FPS counter */}
+      {__DEV__ && FpsCounter && <FpsCounter />}
     </View>
   );
+}
+
+// ─── Review prompt helper ───
+async function maybeRequestReview(score: number, gamesPlayed: number) {
+  if (!StoreReview) return;
+  if (gamesPlayed < 10) return;
+  if (score < 20) return;
+
+  try {
+    const lastGame = await getLastReviewGame();
+    if (gamesPlayed - lastGame < 30) return;
+
+    const isAvailable = await StoreReview.isAvailableAsync();
+    if (!isAvailable) return;
+
+    await StoreReview.requestReview();
+    await setLastReviewGame(gamesPlayed);
+  } catch {
+    // Review request failed silently
+  }
 }
 
 const styles = StyleSheet.create({
@@ -315,5 +515,71 @@ const styles = StyleSheet.create({
   },
   gameContainer: {
     flex: 1,
+  },
+  niceOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    pointerEvents: 'none',
+  },
+  niceText: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    color: Colors.success,
+    textShadowColor: Colors.success,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 20,
+    letterSpacing: 2,
+  },
+  tutorialOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(15, 15, 35, 0.94)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 200,
+  },
+  tutorialCard: {
+    backgroundColor: Colors.backgroundLight,
+    borderRadius: 24,
+    padding: 32,
+    marginHorizontal: 32,
+    alignItems: 'center',
+  },
+  tutorialTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: Colors.textPrimary,
+    marginBottom: 24,
+    letterSpacing: 2,
+  },
+  tutorialRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 32,
+    gap: 16,
+  },
+  tutorialArrow: {
+    fontSize: 32,
+    marginTop: 4,
+  },
+  tutorialText: {
+    flex: 1,
+    fontSize: 17,
+    color: Colors.textSecondary,
+    lineHeight: 26,
+  },
+  tutorialButton: {
+    backgroundColor: Colors.accent,
+    paddingHorizontal: 48,
+    paddingVertical: 16,
+    borderRadius: 30,
+    minWidth: 160,
+    alignItems: 'center',
+  },
+  tutorialButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.background,
+    letterSpacing: 2,
   },
 });

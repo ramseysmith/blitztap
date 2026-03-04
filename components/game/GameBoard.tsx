@@ -13,6 +13,7 @@ import { RippleEffect } from './RippleEffect';
 import { Colors, PieceColor } from '../../utils/colors';
 import { ShapeType, Option } from '../../utils/levelGenerator';
 import { SPRING_CONFIG } from '../../hooks/useGameAnimations';
+import { useAccessibility } from '../../contexts/AccessibilityContext';
 
 interface GameBoardProps {
   options: Option[];
@@ -54,6 +55,7 @@ function GridOption({
   disabled,
   gridDimOpacity,
 }: GridOptionProps) {
+  const { reduceMotion } = useAccessibility();
   const pressScale = useSharedValue(1);
   const optionScale = useSharedValue(1);
   const flashOpacity = useSharedValue(0);
@@ -65,6 +67,13 @@ function GridOption({
   // Handle correct tap animation
   useEffect(() => {
     if (isCorrectTap) {
+      if (reduceMotion) {
+        // Instant color feedback only, no pop or ripple
+        flashColor.value = 0;
+        flashOpacity.value = withTiming(0.5, { duration: 80 });
+        setTimeout(() => { flashOpacity.value = withTiming(0, { duration: 80 }); }, 80);
+        return;
+      }
       // Pop animation
       optionScale.value = withSequence(
         withSpring(1.3, { damping: 8, stiffness: 300 }),
@@ -79,13 +88,18 @@ function GridOption({
       // Ripple
       setRippleTrigger(prev => prev + 1);
     }
-  }, [isCorrectTap, optionScale, flashOpacity, flashColor]);
+  }, [isCorrectTap, optionScale, flashOpacity, flashColor, reduceMotion]);
 
   // Handle wrong tap animation
   useEffect(() => {
     if (isWrongTap) {
-      // Red flash
+      // Red flash (functional feedback — keep even with reduce motion)
       flashColor.value = 1;
+      if (reduceMotion) {
+        flashOpacity.value = withTiming(0.6, { duration: 100 });
+        setTimeout(() => { flashOpacity.value = withTiming(0, { duration: 100 }); }, 100);
+        return;
+      }
       flashOpacity.value = withSequence(
         withTiming(0.8, { duration: 75 }),
         withTiming(0.3, { duration: 75 }),
@@ -101,7 +115,7 @@ function GridOption({
         withTiming(0, { duration: 50 })
       );
     }
-  }, [isWrongTap, flashOpacity, flashColor, shakeX]);
+  }, [isWrongTap, flashOpacity, flashColor, shakeX, reduceMotion]);
 
   // Handle correct reveal (after wrong tap or timeout)
   useEffect(() => {
@@ -160,12 +174,17 @@ function GridOption({
     };
   });
 
+  const accessLabel = `${option.color} ${option.shape}`;
+
   return (
     <AnimatedPressable
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       onPress={handlePress}
       disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={accessLabel}
+      accessibilityState={{ disabled }}
       style={[
         styles.option,
         { width: size, height: size },

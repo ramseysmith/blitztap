@@ -7,6 +7,12 @@ import { generateRound } from '../utils/levelGenerator';
 import { calculateMultiplier, calculateRoundCoins } from '../utils/scoring';
 import { setHighScore, addCoins } from '../utils/storage';
 
+// Grace period before timeout fires (ms) — accounts for animation frame delays
+const TIMEOUT_GRACE_MS = 50;
+
+// First-time tutorial: use 5s per tap instead of standard time
+const FIRST_TIME_TAP_DURATION_S = 5;
+
 interface UseGameEngineOptions {
   onTimeout?: () => void;
 }
@@ -22,6 +28,13 @@ export function useGameEngine(options?: UseGameEngineOptions) {
   const statusRef = useRef(state.status);
   const stateRef = useRef(state);
   const onTimeoutRef = useRef(options?.onTimeout);
+
+  // Tap deduplication guard: ignore taps within 100ms of the last registered tap
+  const lastTapTimeRef = useRef(0);
+
+  // Pause support: remaining time when paused
+  const pausedRemainingRef = useRef<number | null>(null);
+  const isPausedRef = useRef(false);
 
   const timeProgress = useSharedValue(1);
 
@@ -91,19 +104,19 @@ export function useGameEngine(options?: UseGameEngineOptions) {
 
   // Timer loop using requestAnimationFrame for precision
   const updateTimer = useCallback(() => {
-    if (statusRef.current !== 'playing') return;
+    if (statusRef.current !== 'playing' || isPausedRef.current) return;
 
     const elapsed = Date.now() - startTimeRef.current;
     const timePerTap = timePerTapRef.current;
     const remaining = timePerTap - elapsed;
 
-    if (remaining <= 0) {
+    if (remaining <= -TIMEOUT_GRACE_MS) {
       timeProgress.value = 0;
       handleTimeoutRef.current();
       return;
     }
 
-    timeProgress.value = remaining / timePerTap;
+    timeProgress.value = Math.max(0, remaining / timePerTap);
     timerRef.current = requestAnimationFrame(updateTimer);
   }, [timeProgress]);
 
@@ -142,9 +155,41 @@ export function useGameEngine(options?: UseGameEngineOptions) {
     }
   }, [state.status, state.target]);
 
+  // Pause the timer (called when app backgrounds during play)
+  const pauseTimer = useCallback(() => {
+    if (statusRef.current !== 'playing' || isPausedRef.current) return;
+    isPausedRef.current = true;
+
+    if (timerRef.current) {
+      cancelAnimationFrame(timerRef.current);
+      timerRef.current = null;
+    }
+
+    // Store remaining time
+    const elapsed = Date.now() - startTimeRef.current;
+    const remaining = Math.max(0, timePerTapRef.current - elapsed);
+    pausedRemainingRef.current = remaining;
+  }, []);
+
+  // Resume the timer (called when player taps resume after coming back)
+  const resumeTimer = useCallback(() => {
+    if (!isPausedRef.current) return;
+    isPausedRef.current = false;
+
+    // Restore start time based on remaining time when paused
+    const remaining = pausedRemainingRef.current ?? timePerTapRef.current;
+    startTimeRef.current = Date.now() - (timePerTapRef.current - remaining);
+    pausedRemainingRef.current = null;
+
+    timerRef.current = requestAnimationFrame(updateTimer);
+  }, [updateTimer]);
+
   // Start game (called after countdown)
   const startGame = useCallback(() => {
-    const round = generateRound(0);
+    const currentState = stateRef.current;
+    // Use extended time if first-time taps remain
+    const useFirstTimeTimer = currentState.firstTimeTapsRemaining > 0;
+    const round = generateRound(0, useFirstTimeTimer ? FIRST_TIME_TAP_DURATION_S : undefined);
     dispatch({
       type: 'START_GAME',
       payload: {
@@ -158,14 +203,22 @@ export function useGameEngine(options?: UseGameEngineOptions) {
   }, [dispatch]);
 
   // Start countdown
-  const startCountdown = useCallback(() => {
-    dispatch({ type: 'START_COUNTDOWN' });
+  const startCountdown = useCallback((firstTimeTapsRemaining?: number) => {
+    dispatch({
+      type: 'START_COUNTDOWN',
+      payload: firstTimeTapsRemaining !== undefined ? { firstTimeTapsRemaining } : undefined,
+    });
   }, [dispatch]);
 
   // Handle tap on an option
   const handleTap = useCallback(async (optionId: string) => {
     const currentState = stateRef.current;
     if (currentState.status !== 'playing') return;
+
+    // Deduplication guard: ignore rapid double-taps
+    const now = Date.now();
+    if (now - lastTapTimeRef.current < 100) return;
+    lastTapTimeRef.current = now;
 
     const tappedOption = currentState.options.find(opt => opt.id === optionId);
     if (!tappedOption) return;
@@ -181,7 +234,8 @@ export function useGameEngine(options?: UseGameEngineOptions) {
       const newScore = currentState.score + 1;
       const newStreak = currentState.streak + 1;
       const newMultiplier = calculateMultiplier(newStreak);
-      const round = generateRound(newScore);
+      const useFirstTimeTimer = currentState.firstTimeTapsRemaining > 1; // >1 because we haven't decremented yet
+      const round = generateRound(newScore, useFirstTimeTimer ? FIRST_TIME_TAP_DURATION_S : undefined);
 
       dispatch({
         type: 'CORRECT_TAP',
@@ -221,6 +275,9 @@ export function useGameEngine(options?: UseGameEngineOptions) {
   // Reset game
   const resetGame = useCallback(() => {
     timeoutHandledRef.current = false;
+    isPausedRef.current = false;
+    pausedRemainingRef.current = null;
+    lastTapTimeRef.current = 0;
     if (timerRef.current) {
       cancelAnimationFrame(timerRef.current);
       timerRef.current = null;
@@ -231,16 +288,18 @@ export function useGameEngine(options?: UseGameEngineOptions) {
   }, [dispatch, timeProgress]);
 
   // Play again (reset and start countdown)
-  const playAgain = useCallback(() => {
+  const playAgain = useCallback((firstTimeTapsRemaining?: number) => {
     resetGame();
     setTimeout(() => {
-      startCountdown();
+      startCountdown(firstTimeTapsRemaining);
     }, 50);
   }, [resetGame, startCountdown]);
 
   // Continue game after watching rewarded ad (keeps score and streak)
   const continueGame = useCallback(() => {
     timeoutHandledRef.current = false;
+    isPausedRef.current = false;
+    pausedRemainingRef.current = null;
     if (timerRef.current) {
       cancelAnimationFrame(timerRef.current);
       timerRef.current = null;
@@ -269,6 +328,8 @@ export function useGameEngine(options?: UseGameEngineOptions) {
     resetGame,
     playAgain,
     continueGame,
+    pauseTimer,
+    resumeTimer,
     timeProgress,
   };
 }

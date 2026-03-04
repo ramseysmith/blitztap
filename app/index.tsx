@@ -140,13 +140,26 @@ export default function HomeScreen() {
 
       {/* Header with coins and settings */}
       <View style={styles.header}>
-        <Pressable
-          onPress={handleSettings}
-          style={styles.settingsButton}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Text style={styles.settingsIcon}>⚙️</Text>
-        </Pressable>
+        <View style={styles.headerLeft}>
+          <Pressable
+            onPress={handleSettings}
+            style={styles.settingsButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityRole="button"
+            accessibilityLabel="Open settings"
+          >
+            <Text style={styles.settingsIcon}>⚙️</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => { feedback.onButtonPress(); router.push('/stats'); }}
+            style={styles.statsButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityRole="button"
+            accessibilityLabel="View stats"
+          >
+            <Text style={styles.statsIcon}>📊</Text>
+          </Pressable>
+        </View>
         <CoinDisplay coins={state.totalCoins} />
       </View>
 
@@ -168,7 +181,13 @@ export default function HomeScreen() {
 
       {/* Play button and Remove Ads */}
       <View style={[styles.footer, { paddingBottom: isProUser ? insets.bottom + 40 : insets.bottom + 80 }]}>
-        <Pressable onPress={handlePlay} onPressIn={handlePressIn} onPressOut={handlePressOut}>
+        <Pressable
+          onPress={handlePlay}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          accessibilityRole="button"
+          accessibilityLabel="Play game"
+        >
           <Animated.View style={[styles.playButton, buttonGlowStyle]}>
             <Text style={styles.playButtonText}>PLAY</Text>
           </Animated.View>
@@ -259,11 +278,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     zIndex: 1,
   },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   settingsButton: {
     padding: 8,
   },
   settingsIcon: {
     fontSize: 24,
+  },
+  statsButton: {
+    padding: 8,
+  },
+  statsIcon: {
+    fontSize: 22,
   },
   content: {
     flex: 1,

@@ -70,11 +70,11 @@ function getColorsForTier(tier: 1 | 2 | 3 | 4): readonly PieceColor[] {
  * Tier 3 (25-49): Same as tier 2 but 9 options (3x3), more near-misses
  * Tier 4 (50+): 12 options (4x3), maximum confusion
  */
-export function generateRound(score: number): RoundData {
+export function generateRound(score: number, overrideTimePerTap?: number): RoundData {
   const tier = calculateTier(score);
   const gridSize = getGridSize(tier);
   const gridColumns = getGridColumns(tier);
-  const timePerTap = getTimePerTap(tier);
+  const timePerTap = overrideTimePerTap ?? getTimePerTap(tier);
   const availableColors = getColorsForTier(tier);
 
   if (tier === 1) {

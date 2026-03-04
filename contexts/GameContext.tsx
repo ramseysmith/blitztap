@@ -23,6 +23,8 @@ export interface GameState {
   roundsPlayedThisSession: number;
   isNewHighScore: boolean;
   hasUsedContinue: boolean;
+  // First-time tutorial: counts down from 3 to 0 on first game
+  firstTimeTapsRemaining: number;
 }
 
 // Initial State
@@ -44,11 +46,12 @@ const initialState: GameState = {
   roundsPlayedThisSession: 0,
   isNewHighScore: false,
   hasUsedContinue: false,
+  firstTimeTapsRemaining: 0,
 };
 
 // Action Types
 type GameAction =
-  | { type: 'START_COUNTDOWN' }
+  | { type: 'START_COUNTDOWN'; payload?: { firstTimeTapsRemaining: number } }
   | { type: 'START_GAME'; payload: { target: Target; options: Option[]; gridColumns: number; timePerTap: number; tier: 1 | 2 | 3 | 4 } }
   | { type: 'CORRECT_TAP'; payload: { target: Target; options: Option[]; gridColumns: number; timePerTap: number; tier: 1 | 2 | 3 | 4; multiplier: number } }
   | { type: 'WRONG_TAP'; payload: { roundCoins: number; isNewHighScore: boolean } }
@@ -73,6 +76,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         roundCoins: 0,
         isNewHighScore: false,
         hasUsedContinue: false,
+        firstTimeTapsRemaining: action.payload?.firstTimeTapsRemaining ?? 0,
       };
 
     case 'START_GAME':
@@ -87,7 +91,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         tier: action.payload.tier,
       };
 
-    case 'CORRECT_TAP':
+    case 'CORRECT_TAP': {
       const newStreak = state.streak + 1;
       return {
         ...state,
@@ -101,7 +105,9 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         timePerTap: action.payload.timePerTap * 1000,
         timeRemaining: action.payload.timePerTap * 1000,
         tier: action.payload.tier,
+        firstTimeTapsRemaining: Math.max(0, state.firstTimeTapsRemaining - 1),
       };
+    }
 
     case 'WRONG_TAP':
     case 'TIMEOUT':

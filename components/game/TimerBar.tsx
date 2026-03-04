@@ -12,6 +12,7 @@ import Animated, {
   useAnimatedReaction,
 } from 'react-native-reanimated';
 import { Colors } from '../../utils/colors';
+import { useAccessibility } from '../../contexts/AccessibilityContext';
 
 interface TimerBarProps {
   timeProgress: SharedValue<number>;
@@ -23,14 +24,25 @@ const BAR_MARGIN = 20;
 const BAR_WIDTH = SCREEN_WIDTH - BAR_MARGIN * 2;
 
 export function TimerBar({ timeProgress }: TimerBarProps) {
+  const { reduceMotion } = useAccessibility();
   const pulseOpacity = useSharedValue(1);
   const isPulsing = useSharedValue(false);
 
   // React to time progress changes on the UI thread
   useAnimatedReaction(
     () => timeProgress.value,
-    (current, previous) => {
+    (current) => {
       'worklet';
+      // Skip pulse when reduce motion is enabled
+      if (reduceMotion) {
+        if (isPulsing.value) {
+          isPulsing.value = false;
+          cancelAnimation(pulseOpacity);
+          pulseOpacity.value = 1;
+        }
+        return;
+      }
+
       const shouldPulse = current < 0.25 && current > 0;
       const wasPulsing = isPulsing.value;
 

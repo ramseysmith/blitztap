@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator, Share } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -15,6 +15,7 @@ import Animated, {
 import { Colors } from '../../utils/colors';
 import { useFeedback } from '../../hooks/useFeedback';
 import { SPRING_BOUNCY, SPRING_CONFIG } from '../../hooks/useGameAnimations';
+import { useAccessibility } from '../../contexts/AccessibilityContext';
 
 interface GameOverOverlayProps {
   score: number;
@@ -22,7 +23,6 @@ interface GameOverOverlayProps {
   roundCoins: number;
   onPlayAgain: () => void;
   onHome: () => void;
-  // New props for ads/purchases
   rewardedReady?: boolean;
   hasUsedContinue?: boolean;
   onContinue?: () => void;
@@ -30,7 +30,15 @@ interface GameOverOverlayProps {
   isProUser?: boolean;
   removeAdsPrice?: string;
   isPurchasing?: boolean;
+  tier?: number;
 }
+
+const TIER_NAMES: Record<number, string> = {
+  1: 'Beginner',
+  2: 'Intermediate',
+  3: 'Advanced',
+  4: 'Chaos Mode',
+};
 
 export function GameOverOverlay({
   score,
@@ -45,8 +53,10 @@ export function GameOverOverlay({
   isProUser = false,
   removeAdsPrice = '$3.99',
   isPurchasing = false,
+  tier = 1,
 }: GameOverOverlayProps) {
   const feedback = useFeedback();
+  const { reduceMotion } = useAccessibility();
   const hasPlayedGameOver = useRef(false);
   const hasPlayedHighScore = useRef(false);
 
@@ -92,6 +102,31 @@ export function GameOverOverlay({
     if (!hasPlayedGameOver.current) {
       hasPlayedGameOver.current = true;
       feedback.onGameOver();
+    }
+
+    if (reduceMotion) {
+      // Appear immediately — no stagger
+      backdropOpacity.value = 1;
+      titleY.value = 0;
+      titleOpacity.value = 1;
+      scoreProgress.value = withTiming(1, { duration: 400, easing: Easing.out(Easing.quad) });
+      if (isNewHighScore) {
+        highScoreBadgeScale.value = 1;
+        playHighScoreSound();
+      }
+      coinsY.value = 0;
+      coinsOpacity.value = 1;
+      if (showContinueButton) {
+        continueButtonScale.value = 1;
+        continueButtonOpacity.value = 1;
+      }
+      buttonScale.value = 1;
+      buttonOpacity.value = 1;
+      homeButtonOpacity.value = 1;
+      if (!isProUser && onRemoveAds) {
+        removeAdsOpacity.value = 1;
+      }
+      return;
     }
 
     // Staggered entry animation sequence
@@ -248,6 +283,19 @@ export function GameOverOverlay({
     onHome();
   };
 
+  const handleShare = async () => {
+    feedback.onButtonPress();
+    const tierName = TIER_NAMES[tier] ?? 'Beginner';
+    const message = isNewHighScore
+      ? `🏆 NEW BEST: I scored ${score} in BlitzTap and reached ${tierName}! Who can beat this? ⚡`
+      : `I scored ${score} in BlitzTap and reached ${tierName}! Can you beat me? 🔥⚡`;
+    try {
+      await Share.share({ message });
+    } catch {
+      // User dismissed or share not available
+    }
+  };
+
   return (
     <Animated.View style={[styles.overlay, backdropStyle]}>
       <View style={styles.content}>
@@ -255,9 +303,13 @@ export function GameOverOverlay({
           GAME OVER
         </Animated.Text>
 
-        <View style={styles.scoreSection}>
+        <View
+          style={styles.scoreSection}
+          accessible
+          accessibilityLabel={`Final score: ${score}${isNewHighScore ? ', new high score!' : ''}`}
+        >
           <Text style={styles.scoreLabel}>Final Score</Text>
-          <Animated.View style={scoreStyle}>
+          <Animated.View style={scoreStyle} accessibilityElementsHidden>
             <AnimatedScoreText score={animatedScore} />
           </Animated.View>
 
@@ -281,6 +333,8 @@ export function GameOverOverlay({
               onPress={handleContinue}
               onPressIn={handleContinuePressIn}
               onPressOut={handleContinuePressOut}
+              accessibilityRole="button"
+              accessibilityLabel="Continue — watch ad to keep playing"
             >
               <Text style={styles.continueButtonText}>Continue</Text>
               <Text style={styles.continueSubtext}>Watch ad to keep playing</Text>
@@ -294,15 +348,34 @@ export function GameOverOverlay({
             onPress={handlePlayAgain}
             onPressIn={handlePressIn}
             onPressOut={handlePressOut}
+            accessibilityRole="button"
+            accessibilityLabel="Play again"
           >
             <Text style={styles.playAgainText}>Play Again</Text>
           </Pressable>
         </Animated.View>
 
         <Animated.View style={[styles.homeButtonContainer, homeButtonStyle]}>
-          <Pressable style={styles.homeButton} onPress={handleHome}>
-            <Text style={styles.homeButtonText}>Home</Text>
-          </Pressable>
+          <View style={styles.homeRow}>
+            <Pressable
+              style={styles.homeButton}
+              onPress={handleHome}
+              accessibilityRole="button"
+              accessibilityLabel="Go to home screen"
+            >
+              <Text style={styles.homeButtonText}>Home</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.shareButton, isNewHighScore && styles.shareButtonHighlight]}
+              onPress={handleShare}
+              accessibilityRole="button"
+              accessibilityLabel="Share your score"
+            >
+              <Text style={styles.shareButtonText}>
+                {isNewHighScore ? '🏆 Share' : 'Share'}
+              </Text>
+            </Pressable>
+          </View>
         </Animated.View>
 
         {/* Remove Ads prompt - shown below Play Again for non-pro users */}
@@ -463,15 +536,44 @@ const styles = StyleSheet.create({
   homeButtonContainer: {
     marginTop: 20,
   },
+  homeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
   homeButton: {
-    paddingHorizontal: 30,
+    paddingHorizontal: 24,
     paddingVertical: 12,
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   homeButtonText: {
     fontSize: 16,
     color: Colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 2,
+  },
+  shareButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.textSecondary,
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  shareButtonHighlight: {
+    borderColor: '#FFD700',
+  },
+  shareButtonText: {
+    fontSize: 15,
+    color: Colors.textSecondary,
+    fontWeight: '600',
+    letterSpacing: 1,
   },
   removeAdsContainer: {
     marginTop: 30,

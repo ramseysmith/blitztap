@@ -50,16 +50,28 @@ export function ScoreDisplay({
     };
   });
 
+  const scoreAccessLabel =
+    streak > 0
+      ? `Score ${score}, streak ${streak}${multiplier > 1 ? `, ${multiplier}x multiplier` : ''}`
+      : `Score ${score}`;
+
   return (
-    <View style={styles.container}>
+    <View
+      style={styles.container}
+      accessible
+      accessibilityLabel={scoreAccessLabel}
+    >
       <View style={styles.scoreSection}>
         <Text style={styles.scoreLabel}>SCORE</Text>
-        <Animated.Text style={[styles.scoreValue, scoreAnimatedStyle]}>
+        <Animated.Text
+          style={[styles.scoreValue, scoreAnimatedStyle]}
+          accessibilityElementsHidden
+        >
           {score}
         </Animated.Text>
       </View>
 
-      <View style={styles.streakSection}>
+      <View style={styles.streakSection} accessibilityElementsHidden>
         {streak > 0 && (
           <>
             <Text style={styles.streakLabel}>Streak: {streak}</Text>
