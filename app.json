@@ -14,7 +14,7 @@
       "backgroundColor": "#1A1A2E"
     },
     "ios": {
-      "supportsTablet": false,
+      "supportsTablet": true,
       "bundleIdentifier": "com.ramseysmith.blitztap",
       "infoPlist": {
         "NSUserTrackingUsageDescription": "This identifier will be used to deliver personalized ads to you.",
@@ -103,7 +103,10 @@
           "androidAppId": "ca-app-pub-3940256099942544~3347511713",
           "iosAppId": "ca-app-pub-8327362355420246~3491822018"
         }
-      ]
+      ],
+      ["expo-tracking-transparency", {
+        "userTrackingPermission": "This identifier will be used to deliver personalized ads to you."
+      }]
     ],
     "extra": {
       "router": {},

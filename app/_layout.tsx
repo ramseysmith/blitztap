@@ -3,7 +3,8 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, StyleSheet, Platform } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
-import mobileAds, { AdsConsent, AdsConsentStatus } from 'react-native-google-mobile-ads';
+import mobileAds from 'react-native-google-mobile-ads';
+import { requestTrackingPermissionsAsync, getTrackingPermissionsAsync, PermissionStatus } from 'expo-tracking-transparency';
 import Purchases from 'react-native-purchases';
 import { GameProvider } from '../contexts/GameContext';
 import { SettingsProvider } from '../contexts/SettingsContext';
@@ -27,29 +28,23 @@ export default function RootLayout() {
   useEffect(() => {
     async function initialize() {
       try {
-        // Run RevenueCat and ATT/AdMob initialization in parallel
-        const [, ] = await Promise.all([
-          // RevenueCat pre-configure (fast — full init happens in PurchaseContext)
-          Promise.resolve().then(() => {
-            try { Purchases.configure({ apiKey: REVENUECAT_CONFIG.API_KEY }); } catch (e) {
-              console.warn('RevenueCat early configure failed:', e);
-            }
-          }),
+        // Step A: RevenueCat (does not need ATT)
+        try { Purchases.configure({ apiKey: REVENUECAT_CONFIG.API_KEY }); } catch (e) {
+          console.warn('RevenueCat early configure failed:', e);
+        }
 
-          // ATT consent + AdMob init
-          (async () => {
-            if (Platform.OS === 'ios') {
-              const consentInfo = await AdsConsent.requestInfoUpdate();
-              if (
-                consentInfo.status === AdsConsentStatus.REQUIRED ||
-                consentInfo.status === AdsConsentStatus.UNKNOWN
-              ) {
-                await AdsConsent.showForm();
-              }
-            }
-            await mobileAds().initialize();
-          })(),
-        ]);
+        // Step B: Request ATT on iOS — delay 500ms so the app is fully in foreground
+        // iOS silently ignores ATT requests that fire before the app is visible
+        if (Platform.OS === 'ios') {
+          await new Promise(resolve => setTimeout(resolve, 500));
+          const { status } = await getTrackingPermissionsAsync();
+          if (status === PermissionStatus.UNDETERMINED) {
+            await requestTrackingPermissionsAsync();
+          }
+        }
+
+        // Step C: Initialize AdMob AFTER ATT resolves
+        await mobileAds().initialize();
 
         setIsInitialized(true);
       } catch (error) {
