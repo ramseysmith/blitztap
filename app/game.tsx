@@ -378,7 +378,7 @@ export default function GameScreen() {
               />
 
               {state.target && (
-                <TargetDisplay color={state.target.color as PieceColor} shape={state.target.shape} />
+                <TargetDisplay color={state.target.color as PieceColor} shape={state.target.shape} skinId={inventory.equippedShape} />
               )}
 
               <GameBoard
@@ -441,7 +441,7 @@ export default function GameScreen() {
             />
 
             {state.target && (
-              <TargetDisplay color={state.target.color as PieceColor} shape={state.target.shape} />
+              <TargetDisplay color={state.target.color as PieceColor} shape={state.target.shape} skinId={inventory.equippedShape} />
             )}
 
             <GameBoard

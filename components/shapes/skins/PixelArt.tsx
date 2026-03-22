@@ -8,48 +8,78 @@ interface Props {
   size: number;
 }
 
-// Pixel Art: chunky blocky look with stepped border
+// 8x8 pixel circle mask — 1 = filled, 0 = empty
+const CIRCLE_GRID = [
+  [0, 0, 1, 1, 1, 1, 0, 0],
+  [0, 1, 1, 1, 1, 1, 1, 0],
+  [1, 1, 1, 1, 1, 1, 1, 1],
+  [1, 1, 1, 1, 1, 1, 1, 1],
+  [1, 1, 1, 1, 1, 1, 1, 1],
+  [1, 1, 1, 1, 1, 1, 1, 1],
+  [0, 1, 1, 1, 1, 1, 1, 0],
+  [0, 0, 1, 1, 1, 1, 0, 0],
+];
+
+// Pixel Art: chunky blocky look with distinct per-shape rendering
 export function PixelArtSkin({ shape, color, size }: Props) {
-  const blockSize = Math.round(size / 6);
+  const cols = 8;
+  const blockSize = Math.floor(size / cols);
+  const gridSize = blockSize * cols;
 
   if (shape === 'circle') {
-    // Approximate circle with blocks — large center + small corner blocks
     return (
-      <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-        <View style={{ width: size * 0.8, height: size * 0.8, backgroundColor: color, borderRadius: 2 }} />
-        {/* Corner cutouts to make it rounder */}
-        <View style={{ position: 'absolute', top: 0, left: 0, width: blockSize, height: blockSize, backgroundColor: 'transparent' }} />
-        <View style={{ position: 'absolute', top: 0, right: 0, width: blockSize, height: blockSize, backgroundColor: 'transparent' }} />
-        <View style={{ position: 'absolute', bottom: 0, left: 0, width: blockSize, height: blockSize, backgroundColor: 'transparent' }} />
-        <View style={{ position: 'absolute', bottom: 0, right: 0, width: blockSize, height: blockSize, backgroundColor: 'transparent' }} />
+      <View style={{ width: gridSize, height: gridSize }}>
+        {CIRCLE_GRID.map((row, rowIdx) =>
+          row.map((cell, colIdx) =>
+            cell ? (
+              <View
+                key={`${rowIdx}-${colIdx}`}
+                style={{
+                  position: 'absolute',
+                  top: rowIdx * blockSize,
+                  left: colIdx * blockSize,
+                  width: blockSize,
+                  height: blockSize,
+                  backgroundColor: color,
+                }}
+              />
+            ) : null
+          )
+        )}
       </View>
+    );
+  }
+
+  if (shape === 'square') {
+    // Solid filled square, sharp corners, clearly blocky
+    return (
+      <View style={{
+        width: gridSize,
+        height: gridSize,
+        backgroundColor: color,
+        borderRadius: 0,
+      }} />
     );
   }
 
   if (shape === 'diamond') {
+    // Stepped diamond using stacked rows that widen then narrow
+    const steps = 7;
+    const stepH = Math.floor(gridSize / steps);
+    const rows = Array.from({ length: steps }, (_, i) => {
+      const half = Math.floor(steps / 2);
+      const dist = Math.abs(i - half);
+      const w = Math.round(gridSize * (1 - dist / (half + 1)));
+      return w;
+    });
     return (
-      <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-        <View style={{
-          width: size * 0.65,
-          height: size * 0.65,
-          backgroundColor: color,
-          transform: [{ rotate: '45deg' }],
-          borderRadius: 2,
-        }} />
-      </View>
-    );
-  }
-
-  if (shape === 'triangle') {
-    // Chunky stepped triangle using stacked rectangles
-    return (
-      <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'flex-end' }}>
-        {[1, 0.75, 0.5, 0.25].map((w, i) => (
+      <View style={{ width: gridSize, height: gridSize, alignItems: 'center', justifyContent: 'center' }}>
+        {rows.map((w, i) => (
           <View
             key={i}
             style={{
-              width: size * w,
-              height: Math.max(blockSize, Math.round(size / 4)),
+              width: w,
+              height: stepH,
               backgroundColor: color,
             }}
           />
@@ -58,8 +88,31 @@ export function PixelArtSkin({ shape, color, size }: Props) {
     );
   }
 
-  // Square
-  return (
-    <View style={{ width: size * 0.85, height: size * 0.85, backgroundColor: color, borderRadius: 2 }} />
-  );
+  if (shape === 'triangle') {
+    // Stepped triangle — narrow at top, wide at bottom
+    const steps = 6;
+    const stepH = Math.floor(gridSize / steps);
+    return (
+      <View style={{ width: gridSize, height: gridSize, alignItems: 'center', justifyContent: 'flex-end' }}>
+        {Array.from({ length: steps }, (_, i) => {
+          // i=0 at top of flex stack (narrowest), i=steps-1 at bottom (widest)
+          const w = Math.round(gridSize * ((steps - i) / steps));
+          // Snap width to nearest blockSize for pixel feel
+          const snapped = Math.round(w / blockSize) * blockSize;
+          return (
+            <View
+              key={i}
+              style={{
+                width: snapped,
+                height: stepH,
+                backgroundColor: color,
+              }}
+            />
+          );
+        }).reverse()}
+      </View>
+    );
+  }
+
+  return null;
 }

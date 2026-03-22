@@ -383,6 +383,7 @@ export default function DailyScreen() {
             <TargetDisplay
               color={currentRound.target.color as PieceColor}
               shape={currentRound.target.shape}
+              skinId={inventory.equippedShape}
             />
 
             <GameBoard

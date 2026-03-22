@@ -70,12 +70,45 @@ function SparkleEffect({ x, y, onDone }: { x: number; y: number; onDone: () => v
   );
 }
 
-function ConfettiEffect({ x, y, onDone }: { x: number; y: number; onDone: () => void }) {
-  const PIECES = Array.from({ length: 8 }, (_, i) => ({
-    angle: (i / 8) * Math.PI * 2,
-    color: ['#FF3366', '#00D4FF', '#FFD700', '#00FF88', '#AA44FF', '#FF8844', '#FFFFFF', '#FF6699'][i],
-  }));
+interface ConfettiPieceProps {
+  tx: number;
+  ty: number;
+  color: string;
+}
 
+function ConfettiPiece({ tx, ty, color }: ConfettiPieceProps) {
+  const pos = useSharedValue(0);
+  const op = useSharedValue(1);
+  useEffect(() => {
+    pos.value = withTiming(1, { duration: 400, easing: Easing.out(Easing.quad) });
+    op.value = withSequence(withTiming(1, { duration: 200 }), withTiming(0, { duration: 200 }));
+  }, []);
+  const style = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      transform: [
+        { translateX: pos.value * tx },
+        { translateY: pos.value * ty },
+        { rotate: `${pos.value * 180}deg` },
+      ],
+      opacity: op.value,
+    };
+  });
+  return (
+    <Animated.View
+      style={[styles.confettiPiece, { backgroundColor: color, left: 38, top: 38 }, style]}
+    />
+  );
+}
+
+const CONFETTI_PIECES = Array.from({ length: 8 }, (_, i) => ({
+  angle: (i / 8) * Math.PI * 2,
+  color: ['#FF3366', '#00D4FF', '#FFD700', '#00FF88', '#AA44FF', '#FF8844', '#FFFFFF', '#FF6699'][i],
+  tx: Math.cos((i / 8) * Math.PI * 2) * 30,
+  ty: Math.sin((i / 8) * Math.PI * 2) * 30,
+}));
+
+function ConfettiEffect({ x, y, onDone }: { x: number; y: number; onDone: () => void }) {
   useEffect(() => {
     const t = setTimeout(onDone, 500);
     return () => clearTimeout(t);
@@ -83,35 +116,9 @@ function ConfettiEffect({ x, y, onDone }: { x: number; y: number; onDone: () => 
 
   return (
     <View style={[styles.effectContainer, { left: x - 40, top: y - 40 }]}>
-      {PIECES.map((piece, i) => {
-        const tx = Math.cos(piece.angle) * 30;
-        const ty = Math.sin(piece.angle) * 30;
-        const ConfettiPiece = () => {
-          const pos = useSharedValue(0);
-          const op = useSharedValue(1);
-          useEffect(() => {
-            pos.value = withTiming(1, { duration: 400, easing: Easing.out(Easing.quad) });
-            op.value = withSequence(withTiming(1, { duration: 200 }), withTiming(0, { duration: 200 }));
-          }, []);
-          const style = useAnimatedStyle(() => {
-            'worklet';
-            return {
-              transform: [
-                { translateX: pos.value * tx },
-                { translateY: pos.value * ty },
-                { rotate: `${pos.value * 180}deg` },
-              ],
-              opacity: op.value,
-            };
-          });
-          return (
-            <Animated.View
-              style={[styles.confettiPiece, { backgroundColor: piece.color, left: 38, top: 38 }, style]}
-            />
-          );
-        };
-        return <ConfettiPiece key={i} />;
-      })}
+      {CONFETTI_PIECES.map((piece, i) => (
+        <ConfettiPiece key={i} tx={piece.tx} ty={piece.ty} color={piece.color} />
+      ))}
     </View>
   );
 }
@@ -140,11 +147,38 @@ function ShockwaveEffect({ x, y, onDone }: { x: number; y: number; onDone: () =>
   );
 }
 
-function ElectricEffect({ x, y, onDone }: { x: number; y: number; onDone: () => void }) {
-  const BOLTS = Array.from({ length: 6 }, (_, i) => ({
-    angle: (i / 6) * Math.PI * 2,
-  }));
+interface BoltProps {
+  angleDeg: number;
+}
 
+function Bolt({ angleDeg }: BoltProps) {
+  const len = useSharedValue(0);
+  const op = useSharedValue(1);
+  useEffect(() => {
+    len.value = withTiming(1, { duration: 200 });
+    op.value = withSequence(withTiming(1, { duration: 150 }), withTiming(0, { duration: 200 }));
+  }, []);
+  const style = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      width: len.value * 35,
+      opacity: op.value,
+    };
+  });
+  return (
+    <Animated.View
+      style={[
+        styles.electricBolt,
+        { left: 38, top: 40, transform: [{ rotate: `${angleDeg}deg` }] },
+        style,
+      ]}
+    />
+  );
+}
+
+const BOLT_ANGLES = Array.from({ length: 6 }, (_, i) => ((i / 6) * Math.PI * 2 * 180) / Math.PI);
+
+function ElectricEffect({ x, y, onDone }: { x: number; y: number; onDone: () => void }) {
   useEffect(() => {
     const t = setTimeout(onDone, 450);
     return () => clearTimeout(t);
@@ -152,37 +186,9 @@ function ElectricEffect({ x, y, onDone }: { x: number; y: number; onDone: () => 
 
   return (
     <View style={[styles.effectContainer, { left: x - 40, top: y - 40 }]}>
-      {BOLTS.map((bolt, i) => {
-        const Bolt = () => {
-          const len = useSharedValue(0);
-          const op = useSharedValue(1);
-          useEffect(() => {
-            len.value = withTiming(1, { duration: 200 });
-            op.value = withSequence(withTiming(1, { duration: 150 }), withTiming(0, { duration: 200 }));
-          }, []);
-          const style = useAnimatedStyle(() => {
-            'worklet';
-            return {
-              width: len.value * 35,
-              opacity: op.value,
-            };
-          });
-          return (
-            <Animated.View
-              style={[
-                styles.electricBolt,
-                {
-                  left: 38,
-                  top: 40,
-                  transform: [{ rotate: `${(bolt.angle * 180) / Math.PI}deg` }],
-                },
-                style,
-              ]}
-            />
-          );
-        };
-        return <Bolt key={i} />;
-      })}
+      {BOLT_ANGLES.map((angleDeg, i) => (
+        <Bolt key={i} angleDeg={angleDeg} />
+      ))}
     </View>
   );
 }
@@ -219,13 +225,45 @@ function SmokeRingEffect({ x, y, onDone }: { x: number; y: number; onDone: () =>
   );
 }
 
-function FireworksEffect({ x, y, onDone }: { x: number; y: number; onDone: () => void }) {
-  const SPARKS = Array.from({ length: 12 }, (_, i) => ({
-    angle: (i / 12) * Math.PI * 2,
-    color: ['#FFD700', '#FF3366', '#00D4FF', '#00FF88'][i % 4],
-    dist: 25 + Math.random() * 25,
-  }));
+interface SparkProps {
+  tx: number;
+  ty: number;
+  color: string;
+}
 
+function Spark({ tx, ty, color }: SparkProps) {
+  const dist = useSharedValue(0);
+  const op = useSharedValue(1);
+  useEffect(() => {
+    dist.value = withTiming(1, { duration: 400, easing: Easing.out(Easing.quad) });
+    op.value = withSequence(withTiming(1, { duration: 250 }), withTiming(0, { duration: 250 }));
+  }, []);
+  const style = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      transform: [{ translateX: dist.value * tx }, { translateY: dist.value * ty }],
+      opacity: op.value,
+    };
+  });
+  return (
+    <Animated.View
+      style={[styles.fireworkSpark, { backgroundColor: color, left: 48, top: 48 }, style]}
+    />
+  );
+}
+
+// Pre-compute sparks at module level so they're stable across re-renders
+const FIREWORK_SPARKS = Array.from({ length: 12 }, (_, i) => {
+  const angle = (i / 12) * Math.PI * 2;
+  const dist = 25 + (i % 5) * 5; // deterministic distances, no Math.random
+  return {
+    tx: Math.cos(angle) * dist,
+    ty: Math.sin(angle) * dist,
+    color: ['#FFD700', '#FF3366', '#00D4FF', '#00FF88'][i % 4],
+  };
+});
+
+function FireworksEffect({ x, y, onDone }: { x: number; y: number; onDone: () => void }) {
   useEffect(() => {
     const t = setTimeout(onDone, 600);
     return () => clearTimeout(t);
@@ -233,33 +271,10 @@ function FireworksEffect({ x, y, onDone }: { x: number; y: number; onDone: () =>
 
   return (
     <View style={[styles.effectContainer, { left: x - 50, top: y - 50 }]}>
-      {/* Center burst */}
       <View style={[styles.fireworkCenter, { left: 47, top: 47 }]} />
-      {SPARKS.map((spark, i) => {
-        const Spark = () => {
-          const dist = useSharedValue(0);
-          const op = useSharedValue(1);
-          useEffect(() => {
-            dist.value = withTiming(1, { duration: 400, easing: Easing.out(Easing.quad) });
-            op.value = withSequence(withTiming(1, { duration: 250 }), withTiming(0, { duration: 250 }));
-          }, []);
-          const style = useAnimatedStyle(() => {
-            'worklet';
-            const tx = Math.cos(spark.angle) * spark.dist * dist.value;
-            const ty = Math.sin(spark.angle) * spark.dist * dist.value;
-            return {
-              transform: [{ translateX: tx }, { translateY: ty }],
-              opacity: op.value,
-            };
-          });
-          return (
-            <Animated.View
-              style={[styles.fireworkSpark, { backgroundColor: spark.color, left: 48, top: 48 }, style]}
-            />
-          );
-        };
-        return <Spark key={i} />;
-      })}
+      {FIREWORK_SPARKS.map((spark, i) => (
+        <Spark key={i} tx={spark.tx} ty={spark.ty} color={spark.color} />
+      ))}
     </View>
   );
 }

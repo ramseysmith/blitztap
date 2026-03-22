@@ -1,15 +1,16 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { ShapeRenderer } from './ShapeRenderer';
 import { Colors, PieceColor } from '../../utils/colors';
 import { ShapeType } from '../../utils/levelGenerator';
+import { ShapeSkinRenderer } from '../shapes/skins/ShapeSkinRenderer';
 
 interface TargetDisplayProps {
   color: PieceColor;
   shape?: ShapeType;
+  skinId?: string;
 }
 
-export function TargetDisplay({ color, shape }: TargetDisplayProps) {
+export function TargetDisplay({ color, shape, skinId = 'default' }: TargetDisplayProps) {
   const shapeLabel = shape ? `${color} ${shape}` : color;
   return (
     <View
@@ -19,10 +20,11 @@ export function TargetDisplay({ color, shape }: TargetDisplayProps) {
     >
       <Text style={styles.label}>Match this!</Text>
       <View style={styles.targetWrapper}>
-        <ShapeRenderer
+        <ShapeSkinRenderer
           shape={shape || 'circle'}
           color={color}
           size={80}
+          skinId={skinId}
         />
       </View>
     </View>

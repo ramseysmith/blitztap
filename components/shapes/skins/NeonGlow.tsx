@@ -11,9 +11,16 @@ interface Props {
 // Neon Glow: dark fill with bright neon border and glow shadow
 export function NeonGlowSkin({ shape, color, size }: Props) {
   if (shape === 'triangle') {
+    const borderThickness = 2.5;
+    const outerH = size * 0.85;
+    const outerW = size * 0.43;
+    // Inner triangle is smaller to simulate a border: subtract border thickness scaled to triangle geometry
+    const inset = borderThickness * 2;
+    const innerH = outerH - inset * 1.73;
+    const innerW = outerW - inset;
     return (
       <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'flex-end' }}>
-        {/* Outer glow layer (slightly larger, more transparent) */}
+        {/* Outer glow layer */}
         <View style={{
           position: 'absolute',
           bottom: 0,
@@ -23,11 +30,11 @@ export function NeonGlowSkin({ shape, color, size }: Props) {
           borderLeftColor: 'transparent',
           borderRightColor: 'transparent',
           borderBottomColor: color + '44',
-          borderBottomWidth: (size * 0.85) + 6,
-          borderLeftWidth: (size * 0.43) + 4,
-          borderRightWidth: (size * 0.43) + 4,
+          borderBottomWidth: outerH + 6,
+          borderLeftWidth: outerW + 4,
+          borderRightWidth: outerW + 4,
         }} />
-        {/* Main triangle */}
+        {/* Colored border triangle */}
         <View style={{
           position: 'absolute',
           bottom: 0,
@@ -37,13 +44,27 @@ export function NeonGlowSkin({ shape, color, size }: Props) {
           borderLeftColor: 'transparent',
           borderRightColor: 'transparent',
           borderBottomColor: color,
-          borderBottomWidth: size * 0.85,
-          borderLeftWidth: size * 0.43,
-          borderRightWidth: size * 0.43,
+          borderBottomWidth: outerH,
+          borderLeftWidth: outerW,
+          borderRightWidth: outerW,
           shadowColor: color,
           shadowOffset: { width: 0, height: 0 },
           shadowOpacity: 0.9,
           shadowRadius: 8,
+        }} />
+        {/* Black inner triangle to create hollow/border effect */}
+        <View style={{
+          position: 'absolute',
+          bottom: inset * 0.6,
+          width: 0,
+          height: 0,
+          borderStyle: 'solid',
+          borderLeftColor: 'transparent',
+          borderRightColor: 'transparent',
+          borderBottomColor: '#0A0A14',
+          borderBottomWidth: innerH,
+          borderLeftWidth: innerW,
+          borderRightWidth: innerW,
         }} />
       </View>
     );
