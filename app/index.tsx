@@ -1,5 +1,14 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, Pressable, Alert, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  Alert,
+  ActivityIndicator,
+  ScrollView,
+  Dimensions,
+} from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -9,33 +18,132 @@ import Animated, {
   withSpring,
   Easing,
 } from 'react-native-reanimated';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BannerAd, BannerAdSize } from 'react-native-google-mobile-ads';
 import { useGame } from '../contexts/GameContext';
 import { usePurchase } from '../contexts/PurchaseContext';
+import { useShop } from '../contexts/ShopContext';
 import { useFeedback } from '../hooks/useFeedback';
 import { CoinDisplay } from '../components/ui/CoinDisplay';
 import { Colors } from '../utils/colors';
 import { AD_UNIT_IDS } from '../utils/adConfig';
 import { SPRING_CONFIG } from '../hooks/useGameAnimations';
 import OnboardingScreen from '../components/OnboardingScreen';
-import { getOnboardingComplete, setOnboardingComplete } from '../utils/storage';
+import { getOnboardingComplete, setOnboardingComplete, getModeHighScores } from '../utils/storage';
+import { getTodayResult, getTodayDateString } from '../utils/dailyChallenge';
+import type { GameMode } from '../contexts/GameContext';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const CARD_WIDTH = SCREEN_WIDTH * 0.72;
+const CARD_GAP = 16;
+
+interface ModeCardData {
+  mode: GameMode;
+  label: string;
+  icon: string;
+  tagline: string;
+  color: string;
+}
+
+const MODE_CARDS: ModeCardData[] = [
+  {
+    mode: 'classic',
+    label: 'Classic',
+    icon: '⚡',
+    tagline: 'One mistake and you\'re done',
+    color: Colors.accent,
+  },
+  {
+    mode: 'timeAttack',
+    label: 'Time Attack',
+    icon: '⏱',
+    tagline: '60 seconds. Score as high as you can.',
+    color: '#FF8844',
+  },
+  {
+    mode: 'zen',
+    label: 'Zen',
+    icon: '🧘',
+    tagline: 'No rush. No pressure. Just tap.',
+    color: '#44DDAA',
+  },
+];
+
+function ModeCard({
+  card,
+  highScore,
+  onPlay,
+}: {
+  card: ModeCardData;
+  highScore: number;
+  onPlay: (mode: GameMode) => void;
+}) {
+  const scale = useSharedValue(1);
+
+  const cardStyle = useAnimatedStyle(() => {
+    'worklet';
+    return { transform: [{ scale: scale.value }] };
+  });
+
+  return (
+    <Animated.View style={[styles.modeCard, { borderColor: card.color + '44' }, cardStyle]}>
+      <Text style={styles.modeIcon}>{card.icon}</Text>
+      <Text style={[styles.modeLabel, { color: card.color }]}>{card.label}</Text>
+      <Text style={styles.modeTagline}>{card.tagline}</Text>
+
+      <View style={styles.modeHighScore}>
+        <Text style={styles.modeHighScoreLabel}>BEST</Text>
+        <Text style={[styles.modeHighScoreValue, { color: card.color }]}>{highScore}</Text>
+      </View>
+
+      <Pressable
+        onPress={() => onPlay(card.mode)}
+        onPressIn={() => { scale.value = withSpring(0.96, { damping: 15, stiffness: 300 }); }}
+        onPressOut={() => { scale.value = withSpring(1, SPRING_CONFIG); }}
+        style={[styles.modePlayButton, { backgroundColor: card.color }]}
+        accessibilityRole="button"
+        accessibilityLabel={`Play ${card.label} mode`}
+      >
+        <Text style={styles.modePlayButtonText}>PLAY</Text>
+      </Pressable>
+    </Animated.View>
+  );
+}
 
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { state } = useGame();
   const { isProUser, removeAdsPrice, purchaseRemoveAds } = usePurchase();
+  const { coins } = useShop();
   const feedback = useFeedback();
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [modeHighScores, setModeHighScores] = useState({ classic: 0, timeAttack: 0, zen: 0 });
+  const [dailyStatus, setDailyStatus] = useState<{ attempted: boolean; score: number; completed: boolean } | null>(null);
+  const [todayDate] = useState(getTodayDateString());
 
   useEffect(() => {
     getOnboardingComplete().then((done) => {
       if (!done) setShowOnboarding(true);
     });
   }, []);
+
+  // Refresh data each time screen gains focus (after returning from game)
+  useFocusEffect(
+    useCallback(() => {
+      getModeHighScores().then(setModeHighScores);
+
+      getTodayResult().then((result) => {
+        if (result) {
+          setDailyStatus({ attempted: true, score: result.score, completed: result.completed });
+        } else {
+          setDailyStatus({ attempted: false, score: 0, completed: false });
+        }
+      });
+    }, []),
+  );
 
   const handleOnboardingComplete = useCallback(async () => {
     await setOnboardingComplete();
@@ -44,30 +152,29 @@ export default function HomeScreen() {
 
   // Animation values
   const titleGlow = useSharedValue(0.5);
-  const buttonGlow = useSharedValue(0.3);
-  const buttonScale = useSharedValue(1);
-  const removeAdsScale = useSharedValue(1);
+  const dailyPulse = useSharedValue(1);
 
-  // Title glow pulse
   useEffect(() => {
     titleGlow.value = withRepeat(
       withSequence(
         withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.sin) }),
-        withTiming(0.5, { duration: 2000, easing: Easing.inOut(Easing.sin) })
+        withTiming(0.5, { duration: 2000, easing: Easing.inOut(Easing.sin) }),
       ),
       -1,
-      true
+      true,
     );
 
-    buttonGlow.value = withRepeat(
-      withSequence(
-        withTiming(0.6, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
-        withTiming(0.3, { duration: 1500, easing: Easing.inOut(Easing.sin) })
-      ),
-      -1,
-      true
-    );
-  }, []);
+    if (dailyStatus && !dailyStatus.attempted) {
+      dailyPulse.value = withRepeat(
+        withSequence(
+          withTiming(1.03, { duration: 1000 }),
+          withTiming(1, { duration: 1000 }),
+        ),
+        -1,
+        true,
+      );
+    }
+  }, [dailyStatus]);
 
   const titleGlowStyle = useAnimatedStyle(() => {
     'worklet';
@@ -77,40 +184,14 @@ export default function HomeScreen() {
     };
   });
 
-  const buttonGlowStyle = useAnimatedStyle(() => {
+  const dailyCardStyle = useAnimatedStyle(() => {
     'worklet';
-    return {
-      shadowOpacity: buttonGlow.value,
-      transform: [{ scale: buttonScale.value }],
-    };
+    return { transform: [{ scale: dailyPulse.value }] };
   });
 
-  const removeAdsButtonStyle = useAnimatedStyle(() => {
-    'worklet';
-    return {
-      transform: [{ scale: removeAdsScale.value }],
-    };
-  });
-
-  const handlePressIn = () => {
-    buttonScale.value = withSpring(0.95, { damping: 15, stiffness: 300 });
-  };
-
-  const handlePressOut = () => {
-    buttonScale.value = withSpring(1, SPRING_CONFIG);
-  };
-
-  const handleRemoveAdsPressIn = () => {
-    removeAdsScale.value = withSpring(0.95, { damping: 15, stiffness: 300 });
-  };
-
-  const handleRemoveAdsPressOut = () => {
-    removeAdsScale.value = withSpring(1, SPRING_CONFIG);
-  };
-
-  const handlePlay = () => {
+  const handlePlay = (mode: GameMode) => {
     feedback.onButtonPress();
-    router.push('/game');
+    router.push(`/game?mode=${mode}`);
   };
 
   const handleSettings = () => {
@@ -118,19 +199,46 @@ export default function HomeScreen() {
     router.push('/settings');
   };
 
+  const handleStats = () => {
+    feedback.onButtonPress();
+    router.push('/stats');
+  };
+
+  const handleShop = () => {
+    feedback.onButtonPress();
+    router.push('/shop');
+  };
+
+  const handleDailyChallenge = () => {
+    feedback.onButtonPress();
+    router.push('/daily');
+  };
+
   const handleRemoveAds = async () => {
     feedback.onButtonPress();
     setIsPurchasing(true);
     const result = await purchaseRemoveAds();
     setIsPurchasing(false);
-
     if (result.message) {
       Alert.alert(result.success ? 'Success' : 'Purchase', result.message);
     }
   };
 
+  const formatDate = (dateStr: string) => {
+    try {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 20 }]}>
+    <View style={[styles.container, { paddingTop: insets.top + 10 }]}>
       {/* Background decoration */}
       <View style={styles.backgroundDecoration}>
         <View style={[styles.bgShape, styles.bgShape1]} />
@@ -138,91 +246,126 @@ export default function HomeScreen() {
         <View style={[styles.bgShape, styles.bgShape3]} />
       </View>
 
-      {/* Header with coins and settings */}
+      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Pressable
             onPress={handleSettings}
-            style={styles.settingsButton}
+            style={styles.iconButton}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             accessibilityRole="button"
             accessibilityLabel="Open settings"
           >
-            <Text style={styles.settingsIcon}>⚙️</Text>
+            <Text style={styles.headerIcon}>⚙️</Text>
           </Pressable>
           <Pressable
-            onPress={() => { feedback.onButtonPress(); router.push('/stats'); }}
-            style={styles.statsButton}
+            onPress={handleStats}
+            style={styles.iconButton}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             accessibilityRole="button"
             accessibilityLabel="View stats"
           >
-            <Text style={styles.statsIcon}>📊</Text>
+            <Text style={styles.headerIcon}>📊</Text>
           </Pressable>
         </View>
-        <CoinDisplay coins={state.totalCoins} />
+        <View style={styles.headerRight}>
+          <Pressable
+            onPress={handleShop}
+            style={styles.iconButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityRole="button"
+            accessibilityLabel="Open shop"
+          >
+            <Text style={styles.headerIcon}>🛍</Text>
+          </Pressable>
+          <CoinDisplay coins={state.totalCoins} />
+        </View>
       </View>
 
-      {/* Main content */}
-      <View style={styles.content}>
+      <ScrollView
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: isProUser ? insets.bottom + 20 : insets.bottom + 80 }]}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Title */}
         <View style={styles.titleContainer}>
           <Animated.Text style={[styles.title, titleGlowStyle]}>BLITZ</Animated.Text>
           <Animated.Text style={[styles.titleAccent, titleGlowStyle]}>TAP</Animated.Text>
         </View>
 
-        <View style={styles.highScoreContainer}>
-          <View style={styles.highScoreRow}>
-            <Text style={styles.trophyIcon}>🏆</Text>
-            <Text style={styles.highScoreLabel}>HIGH SCORE</Text>
-          </View>
-          <Text style={styles.highScoreValue}>{state.highScore}</Text>
-        </View>
-      </View>
-
-      {/* Play button and Remove Ads */}
-      <View style={[styles.footer, { paddingBottom: isProUser ? insets.bottom + 40 : insets.bottom + 80 }]}>
-        <Pressable
-          onPress={handlePlay}
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
-          accessibilityRole="button"
-          accessibilityLabel="Play game"
-        >
-          <Animated.View style={[styles.playButton, buttonGlowStyle]}>
-            <Text style={styles.playButtonText}>PLAY</Text>
+        {/* Daily Challenge Card */}
+        <Pressable onPress={handleDailyChallenge} style={styles.dailyChallengeWrapper}>
+          <Animated.View
+            style={[
+              styles.dailyChallengeCard,
+              dailyStatus?.attempted ? styles.dailyCardCompleted : styles.dailyCardReady,
+              dailyCardStyle,
+            ]}
+          >
+            <View style={styles.dailyLeft}>
+              <Text style={styles.dailyIcon}>📅</Text>
+              <View>
+                <Text style={styles.dailyTitle}>Daily Challenge</Text>
+                <Text style={styles.dailyDate}>{formatDate(todayDate)}</Text>
+              </View>
+            </View>
+            <View style={styles.dailyRight}>
+              {dailyStatus === null ? (
+                <ActivityIndicator size="small" color={Colors.accent} />
+              ) : dailyStatus.attempted ? (
+                <View style={styles.dailyScoreContainer}>
+                  <Text style={styles.dailyScore}>{dailyStatus.score}</Text>
+                  {dailyStatus.completed && <Text style={styles.dailyStar}>⭐</Text>}
+                  <Text style={styles.dailyDone}>Tomorrow →</Text>
+                </View>
+              ) : (
+                <View style={styles.dailyReadyBadge}>
+                  <Text style={styles.dailyReadyText}>Ready!</Text>
+                </View>
+              )}
+            </View>
           </Animated.View>
         </Pressable>
 
-        {/* Remove Ads button - shown only for non-pro users */}
+        {/* Mode Selection */}
+        <Text style={styles.sectionLabel}>CHOOSE MODE</Text>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.modeCardsContainer}
+          snapToInterval={CARD_WIDTH + CARD_GAP}
+          decelerationRate="fast"
+          snapToAlignment="start"
+        >
+          {MODE_CARDS.map((card) => (
+            <ModeCard
+              key={card.mode}
+              card={card}
+              highScore={modeHighScores[card.mode]}
+              onPlay={handlePlay}
+            />
+          ))}
+        </ScrollView>
+
+        {/* Remove Ads button */}
         {!isProUser && (
-          <Pressable
-            onPress={handleRemoveAds}
-            onPressIn={handleRemoveAdsPressIn}
-            onPressOut={handleRemoveAdsPressOut}
-            disabled={isPurchasing}
-          >
-            <Animated.View style={[styles.removeAdsButton, removeAdsButtonStyle]}>
-              {isPurchasing ? (
-                <ActivityIndicator size="small" color={Colors.background} />
-              ) : (
-                <Text style={styles.removeAdsButtonText}>
-                  Remove Ads - {removeAdsPrice}
-                </Text>
-              )}
-            </Animated.View>
+          <Pressable onPress={handleRemoveAds} disabled={isPurchasing} style={styles.removeAdsButton}>
+            {isPurchasing ? (
+              <ActivityIndicator size="small" color={Colors.background} />
+            ) : (
+              <Text style={styles.removeAdsText}>Remove Ads — {removeAdsPrice}</Text>
+            )}
           </Pressable>
         )}
-      </View>
+      </ScrollView>
 
-      {/* Banner ad at bottom - shown only for non-pro users */}
+      {/* Banner ad */}
       {!isProUser && (
         <View style={[styles.bannerContainer, { paddingBottom: insets.bottom }]}>
           <BannerAd
             unitId={AD_UNIT_IDS.BANNER}
             size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
-            requestOptions={{
-              requestNonPersonalizedAdsOnly: true,
-            }}
+            requestOptions={{ requestNonPersonalizedAdsOnly: true }}
             onAdFailedToLoad={(error: Error) => {
               console.log('Banner ad failed to load:', error);
             }}
@@ -230,7 +373,6 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* First-launch onboarding */}
       {showOnboarding && <OnboardingScreen onComplete={handleOnboardingComplete} />}
     </View>
   );
@@ -250,62 +392,31 @@ const styles = StyleSheet.create({
     borderRadius: 100,
     opacity: 0.03,
   },
-  bgShape1: {
-    width: 300,
-    height: 300,
-    backgroundColor: Colors.accent,
-    top: -100,
-    right: -100,
-  },
-  bgShape2: {
-    width: 200,
-    height: 200,
-    backgroundColor: '#AA44FF',
-    bottom: 100,
-    left: -80,
-  },
-  bgShape3: {
-    width: 150,
-    height: 150,
-    backgroundColor: Colors.success,
-    bottom: -50,
-    right: 50,
-  },
+  bgShape1: { width: 300, height: 300, backgroundColor: Colors.accent, top: -100, right: -100 },
+  bgShape2: { width: 200, height: 200, backgroundColor: '#AA44FF', bottom: 100, left: -80 },
+  bgShape3: { width: 150, height: 150, backgroundColor: Colors.success, bottom: -50, right: 50 },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
+    marginBottom: 8,
     zIndex: 1,
   },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  settingsButton: {
-    padding: 8,
-  },
-  settingsIcon: {
-    fontSize: 24,
-  },
-  statsButton: {
-    padding: 8,
-  },
-  statsIcon: {
-    fontSize: 22,
-  },
-  content: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1,
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  iconButton: { padding: 8 },
+  headerIcon: { fontSize: 22 },
+  scrollContent: {
+    paddingHorizontal: 0,
   },
   titleContainer: {
     alignItems: 'center',
+    marginBottom: 24,
+    paddingHorizontal: 20,
   },
   title: {
-    fontSize: 80,
+    fontSize: 72,
     fontWeight: 'bold',
     color: Colors.textPrimary,
     letterSpacing: 10,
@@ -313,72 +424,159 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 0 },
   },
   titleAccent: {
-    fontSize: 80,
+    fontSize: 72,
     fontWeight: 'bold',
     color: Colors.accent,
     letterSpacing: 10,
-    marginTop: -15,
+    marginTop: -12,
     textShadowColor: Colors.accent,
     textShadowOffset: { width: 0, height: 0 },
   },
-  highScoreContainer: {
-    marginTop: 60,
-    alignItems: 'center',
+  // Daily Challenge
+  dailyChallengeWrapper: {
+    paddingHorizontal: 16,
+    marginBottom: 28,
   },
-  highScoreRow: {
+  dailyChallengeCard: {
+    borderRadius: 16,
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
+    justifyContent: 'space-between',
+    borderWidth: 1,
   },
-  trophyIcon: {
-    fontSize: 18,
+  dailyCardReady: {
+    backgroundColor: '#0D1A2A',
+    borderColor: Colors.accent + '55',
+    shadowColor: Colors.accent,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
   },
-  highScoreLabel: {
-    fontSize: 14,
+  dailyCardCompleted: {
+    backgroundColor: Colors.backgroundLight,
+    borderColor: Colors.textSecondary + '33',
+  },
+  dailyLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  dailyIcon: { fontSize: 28 },
+  dailyTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    letterSpacing: 0.5,
+  },
+  dailyDate: {
+    fontSize: 12,
     color: Colors.textSecondary,
-    letterSpacing: 3,
+    marginTop: 2,
   },
-  highScoreValue: {
-    fontSize: 56,
+  dailyRight: {
+    alignItems: 'flex-end',
+  },
+  dailyReadyBadge: {
+    backgroundColor: Colors.accent,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  dailyReadyText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.background,
+  },
+  dailyScoreContainer: {
+    alignItems: 'flex-end',
+  },
+  dailyScore: {
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#FFD700',
     fontVariant: ['tabular-nums'],
-    textShadowColor: '#FFD700',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 10,
   },
-  footer: {
+  dailyStar: { fontSize: 16, marginTop: 2 },
+  dailyDone: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  // Mode Selection
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+    letterSpacing: 2,
+    paddingHorizontal: 20,
+    marginBottom: 12,
+  },
+  modeCardsContainer: {
+    paddingHorizontal: 16,
+    gap: CARD_GAP,
+    paddingRight: 40,
+  },
+  modeCard: {
+    width: CARD_WIDTH,
+    backgroundColor: Colors.backgroundLight,
+    borderRadius: 20,
+    padding: 24,
+    borderWidth: 1,
     alignItems: 'center',
-    zIndex: 1,
   },
-  playButton: {
-    backgroundColor: Colors.accent,
-    paddingHorizontal: 80,
-    paddingVertical: 22,
-    borderRadius: 40,
-    shadowColor: Colors.accent,
-    shadowOffset: { width: 0, height: 0 },
-    shadowRadius: 20,
+  modeIcon: { fontSize: 36, marginBottom: 8 },
+  modeLabel: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+    marginBottom: 6,
   },
-  playButtonText: {
-    fontSize: 28,
+  modeTagline: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 16,
+  },
+  modeHighScore: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modeHighScoreLabel: {
+    fontSize: 10,
+    color: Colors.textSecondary,
+    letterSpacing: 2,
+    marginBottom: 2,
+  },
+  modeHighScoreValue: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    fontVariant: ['tabular-nums'],
+  },
+  modePlayButton: {
+    paddingHorizontal: 48,
+    paddingVertical: 14,
+    borderRadius: 28,
+    width: '100%',
+    alignItems: 'center',
+  },
+  modePlayButtonText: {
+    fontSize: 18,
     fontWeight: 'bold',
     color: Colors.background,
-    letterSpacing: 6,
+    letterSpacing: 4,
   },
   removeAdsButton: {
+    marginHorizontal: 20,
     marginTop: 20,
     backgroundColor: Colors.warning,
     paddingHorizontal: 30,
     paddingVertical: 14,
     borderRadius: 25,
-    shadowColor: Colors.warning,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
+    alignItems: 'center',
   },
-  removeAdsButtonText: {
+  removeAdsText: {
     fontSize: 14,
     fontWeight: '600',
     color: Colors.background,

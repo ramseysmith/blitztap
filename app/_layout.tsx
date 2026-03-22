@@ -10,6 +10,7 @@ import { GameProvider } from '../contexts/GameContext';
 import { SettingsProvider } from '../contexts/SettingsContext';
 import { PurchaseProvider } from '../contexts/PurchaseContext';
 import { AccessibilityProvider } from '../contexts/AccessibilityContext';
+import { ShopProvider } from '../contexts/ShopContext';
 import { Colors } from '../utils/colors';
 import AnimatedSplash from '../components/AnimatedSplash';
 import { REVENUECAT_CONFIG } from '../utils/adConfig';
@@ -87,16 +88,18 @@ export default function RootLayout() {
     <SettingsProvider>
       <PurchaseProvider>
         <GameProvider>
-          <View style={styles.container}>
-            <StatusBar style="light" />
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                contentStyle: { backgroundColor: Colors.background },
-                animation: 'fade',
-              }}
-            />
-          </View>
+          <ShopProvider>
+            <View style={styles.container}>
+              <StatusBar style="light" />
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  contentStyle: { backgroundColor: Colors.background },
+                  animation: 'fade',
+                }}
+              />
+            </View>
+          </ShopProvider>
         </GameProvider>
       </PurchaseProvider>
     </SettingsProvider>

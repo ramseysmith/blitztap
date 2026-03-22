@@ -9,6 +9,7 @@ import Animated, {
   SharedValue,
 } from 'react-native-reanimated';
 import { ShapeRenderer } from './ShapeRenderer';
+import { ShapeSkinRenderer } from '../shapes/skins/ShapeSkinRenderer';
 import { RippleEffect } from './RippleEffect';
 import { Colors, PieceColor } from '../../utils/colors';
 import { ShapeType, Option } from '../../utils/levelGenerator';
@@ -18,12 +19,13 @@ import { useAccessibility } from '../../contexts/AccessibilityContext';
 interface GameBoardProps {
   options: Option[];
   gridColumns: number;
-  onTap: (optionId: string) => void;
+  onTap: (optionId: string, tapX?: number, tapY?: number) => void;
   gridDimOpacity?: SharedValue<number>;
   correctOptionId?: string | null;
   wrongOptionId?: string | null;
   showCorrectReveal?: boolean;
   disabled?: boolean;
+  equippedSkinId?: string;
 }
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -36,12 +38,13 @@ interface GridOptionProps {
   option: Option;
   size: number;
   shapeSize: number;
-  onTap: (id: string) => void;
+  onTap: (id: string, tapX?: number, tapY?: number) => void;
   isCorrectTap: boolean;
   isWrongTap: boolean;
   showCorrectReveal: boolean;
   disabled: boolean;
   gridDimOpacity?: SharedValue<number>;
+  equippedSkinId?: string;
 }
 
 function GridOption({
@@ -54,6 +57,7 @@ function GridOption({
   showCorrectReveal,
   disabled,
   gridDimOpacity,
+  equippedSkinId = 'default',
 }: GridOptionProps) {
   const { reduceMotion } = useAccessibility();
   const pressScale = useSharedValue(1);
@@ -141,9 +145,11 @@ function GridOption({
     pressScale.value = withSpring(1, SPRING_CONFIG);
   }, [pressScale]);
 
-  const handlePress = useCallback(() => {
+  const handlePress = useCallback((e?: any) => {
     if (!disabled) {
-      onTap(option.id);
+      const tapX = e?.nativeEvent?.pageX;
+      const tapY = e?.nativeEvent?.pageY;
+      onTap(option.id, tapX, tapY);
     }
   }, [disabled, onTap, option.id]);
 
@@ -191,11 +197,20 @@ function GridOption({
         containerStyle,
       ]}
     >
-      <ShapeRenderer
-        shape={option.shape as ShapeType}
-        color={option.color as PieceColor}
-        size={shapeSize}
-      />
+      {equippedSkinId !== 'default' ? (
+        <ShapeSkinRenderer
+          shape={option.shape as ShapeType}
+          color={option.color as PieceColor}
+          size={shapeSize}
+          skinId={equippedSkinId}
+        />
+      ) : (
+        <ShapeRenderer
+          shape={option.shape as ShapeType}
+          color={option.color as PieceColor}
+          size={shapeSize}
+        />
+      )}
 
       {/* White/Red flash overlay */}
       <Animated.View style={[styles.flashOverlay, flashStyle]} />
@@ -220,6 +235,7 @@ export function GameBoard({
   wrongOptionId,
   showCorrectReveal = false,
   disabled = false,
+  equippedSkinId = 'default',
 }: GameBoardProps) {
   const boardWidth = SCREEN_WIDTH - BOARD_PADDING * 2;
   const totalGapWidth = ITEM_GAP * (gridColumns - 1);
@@ -249,6 +265,7 @@ export function GameBoard({
             showCorrectReveal={showCorrectReveal}
             disabled={disabled}
             gridDimOpacity={gridDimOpacity}
+            equippedSkinId={equippedSkinId}
           />
         ))}
       </View>

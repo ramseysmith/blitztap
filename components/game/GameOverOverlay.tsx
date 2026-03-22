@@ -31,6 +31,7 @@ interface GameOverOverlayProps {
   removeAdsPrice?: string;
   isPurchasing?: boolean;
   tier?: number;
+  mode?: string;
 }
 
 const TIER_NAMES: Record<number, string> = {
@@ -38,6 +39,12 @@ const TIER_NAMES: Record<number, string> = {
   2: 'Intermediate',
   3: 'Advanced',
   4: 'Chaos Mode',
+};
+
+const MODE_GAME_OVER_LABELS: Record<string, string> = {
+  classic: 'GAME OVER',
+  timeAttack: "TIME'S UP",
+  zen: 'SESSION OVER',
 };
 
 export function GameOverOverlay({
@@ -54,6 +61,7 @@ export function GameOverOverlay({
   removeAdsPrice = '$3.99',
   isPurchasing = false,
   tier = 1,
+  mode = 'classic',
 }: GameOverOverlayProps) {
   const feedback = useFeedback();
   const { reduceMotion } = useAccessibility();
@@ -300,7 +308,7 @@ export function GameOverOverlay({
     <Animated.View style={[styles.overlay, backdropStyle]}>
       <View style={styles.content}>
         <Animated.Text style={[styles.gameOverText, titleStyle]}>
-          GAME OVER
+          {MODE_GAME_OVER_LABELS[mode] ?? 'GAME OVER'}
         </Animated.Text>
 
         <View

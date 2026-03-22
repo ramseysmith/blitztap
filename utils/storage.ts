@@ -9,6 +9,7 @@ const KEYS = {
   ONBOARDING_COMPLETE: 'blitztap_onboarding_complete',
   HAS_PLAYED_BEFORE: 'blitztap_has_played_before',
   LAST_REVIEW_GAME: 'blitztap_last_review_game',
+  MODE_HIGH_SCORES: 'blitztap_mode_high_scores',
 } as const;
 
 export interface Settings {
@@ -140,5 +141,66 @@ export async function setLastReviewGame(gamesPlayed: number): Promise<void> {
     await AsyncStorage.setItem(KEYS.LAST_REVIEW_GAME, gamesPlayed.toString());
   } catch (error) {
     console.error('Error saving lastReviewGame:', error);
+  }
+}
+
+// Spend coins (for shop purchases)
+export async function spendCoins(amount: number): Promise<number> {
+  try {
+    const current = await getTotalCoins();
+    const newTotal = Math.max(0, current - amount);
+    await AsyncStorage.setItem(KEYS.TOTAL_COINS, newTotal.toString());
+    return newTotal;
+  } catch (error) {
+    console.error('Error spending coins:', error);
+    return 0;
+  }
+}
+
+// Per-mode high scores
+type GameMode = 'classic' | 'timeAttack' | 'zen';
+
+interface ModeHighScores {
+  classic: number;
+  timeAttack: number;
+  zen: number;
+}
+
+export async function getModeHighScores(): Promise<ModeHighScores> {
+  try {
+    const data = await AsyncStorage.getItem(KEYS.MODE_HIGH_SCORES);
+    // Migrate: if classic is 0 but legacy high score exists, use that
+    const base: ModeHighScores = { classic: 0, timeAttack: 0, zen: 0 };
+    if (data) {
+      return { ...base, ...JSON.parse(data) };
+    }
+    // First time: seed classic high score from legacy key
+    const legacy = await getHighScore();
+    const migrated = { ...base, classic: legacy };
+    await AsyncStorage.setItem(KEYS.MODE_HIGH_SCORES, JSON.stringify(migrated));
+    return migrated;
+  } catch {
+    return { classic: 0, timeAttack: 0, zen: 0 };
+  }
+}
+
+export async function getModeHighScore(mode: GameMode): Promise<number> {
+  const scores = await getModeHighScores();
+  return scores[mode];
+}
+
+export async function setModeHighScore(mode: GameMode, score: number): Promise<void> {
+  try {
+    const scores = await getModeHighScores();
+    if (score > scores[mode]) {
+      scores[mode] = score;
+      await AsyncStorage.setItem(KEYS.MODE_HIGH_SCORES, JSON.stringify(scores));
+      // Keep legacy HIGH_SCORE in sync for classic
+      if (mode === 'classic') {
+        await setHighScore(score);
+      }
+    }
+  } catch (error) {
+    console.error('Error saving mode high score:', error);
   }
 }
