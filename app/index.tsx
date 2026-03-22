@@ -35,7 +35,7 @@ import { getTodayResult, getTodayDateString } from '../utils/dailyChallenge';
 import type { GameMode } from '../contexts/GameContext';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const CARD_WIDTH = SCREEN_WIDTH * 0.72;
+const CARD_WIDTH = SCREEN_WIDTH * 0.60;
 const CARD_GAP = 16;
 
 interface ModeCardData {
@@ -80,34 +80,52 @@ function ModeCard({
   onPlay: (mode: GameMode) => void;
 }) {
   const scale = useSharedValue(1);
+  const glow = useSharedValue(0);
 
   const cardStyle = useAnimatedStyle(() => {
     'worklet';
-    return { transform: [{ scale: scale.value }] };
+    return {
+      transform: [{ scale: scale.value }],
+      shadowOpacity: 0.15 + glow.value * 0.45,
+      shadowRadius: 8 + glow.value * 16,
+    };
   });
 
   return (
-    <Animated.View style={[styles.modeCard, { borderColor: card.color + '44' }, cardStyle]}>
-      <Text style={styles.modeIcon}>{card.icon}</Text>
-      <Text style={[styles.modeLabel, { color: card.color }]}>{card.label}</Text>
-      <Text style={styles.modeTagline}>{card.tagline}</Text>
+    <Pressable
+      onPress={() => onPlay(card.mode)}
+      onPressIn={() => {
+        scale.value = withSpring(0.95, { damping: 15, stiffness: 300 });
+        glow.value = withTiming(1, { duration: 120 });
+      }}
+      onPressOut={() => {
+        scale.value = withSpring(1, SPRING_CONFIG);
+        glow.value = withTiming(0, { duration: 200 });
+      }}
+      accessibilityRole="button"
+      accessibilityLabel={`Play ${card.label} mode`}
+    >
+      <Animated.View style={[styles.modeCard, { borderColor: card.color + '66', shadowColor: card.color }, cardStyle]}>
+        {/* Best score badge — top left */}
+        <View style={[styles.modeBestBadge, { borderColor: card.color + '55' }]}>
+          <Text style={styles.modeBestLabel}>BEST</Text>
+          <Text style={[styles.modeBestValue, { color: card.color }]}>{highScore}</Text>
+        </View>
 
-      <View style={styles.modeHighScore}>
-        <Text style={styles.modeHighScoreLabel}>BEST</Text>
-        <Text style={[styles.modeHighScoreValue, { color: card.color }]}>{highScore}</Text>
-      </View>
+        {/* Title row: name + emoji */}
+        <View style={styles.modeTitleRow}>
+          <Text style={[styles.modeLabel, { color: card.color }]}>{card.label}</Text>
+          <Text style={styles.modeIcon}>{card.icon}</Text>
+        </View>
 
-      <Pressable
-        onPress={() => onPlay(card.mode)}
-        onPressIn={() => { scale.value = withSpring(0.96, { damping: 15, stiffness: 300 }); }}
-        onPressOut={() => { scale.value = withSpring(1, SPRING_CONFIG); }}
-        style={[styles.modePlayButton, { backgroundColor: card.color }]}
-        accessibilityRole="button"
-        accessibilityLabel={`Play ${card.label} mode`}
-      >
-        <Text style={styles.modePlayButtonText}>PLAY</Text>
-      </Pressable>
-    </Animated.View>
+        <Text style={styles.modeTagline}>{card.tagline}</Text>
+
+        {/* Tap hint */}
+        <View style={[styles.modeTapHint, { borderColor: card.color + '33', backgroundColor: card.color + '18' }]}>
+          <Text style={[styles.modeTapHintText, { color: card.color }]}>TAP TO PLAY</Text>
+        </View>
+      </Animated.View>
+    </Pressable>
   );
 }
 
@@ -521,51 +539,65 @@ const styles = StyleSheet.create({
     width: CARD_WIDTH,
     backgroundColor: Colors.backgroundLight,
     borderRadius: 20,
-    padding: 24,
+    padding: 16,
+    paddingTop: 52,
     borderWidth: 1,
     alignItems: 'center',
   },
-  modeIcon: { fontSize: 36, marginBottom: 8 },
-  modeLabel: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    letterSpacing: 1,
-    marginBottom: 6,
-  },
-  modeTagline: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 18,
-    marginBottom: 16,
-  },
-  modeHighScore: {
+  modeBestBadge: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    backgroundColor: Colors.background,
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderWidth: 1,
     alignItems: 'center',
-    marginBottom: 20,
+    minWidth: 44,
   },
-  modeHighScoreLabel: {
-    fontSize: 10,
+  modeBestLabel: {
+    fontSize: 9,
+    fontWeight: '700',
     color: Colors.textSecondary,
-    letterSpacing: 2,
-    marginBottom: 2,
+    letterSpacing: 1.5,
   },
-  modeHighScoreValue: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    fontVariant: ['tabular-nums'],
-  },
-  modePlayButton: {
-    paddingHorizontal: 48,
-    paddingVertical: 14,
-    borderRadius: 28,
-    width: '100%',
-    alignItems: 'center',
-  },
-  modePlayButtonText: {
+  modeBestValue: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: Colors.background,
-    letterSpacing: 4,
+    fontVariant: ['tabular-nums'],
+    lineHeight: 20,
+  },
+  modeTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  modeIcon: { fontSize: 20 },
+  modeLabel: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+  },
+  modeTagline: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 16,
+    marginBottom: 14,
+  },
+  modeTapHint: {
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 18,
+    paddingVertical: 7,
+    alignItems: 'center',
+  },
+  modeTapHintText: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 2.5,
   },
   removeAdsButton: {
     marginHorizontal: 20,
