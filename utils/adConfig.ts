@@ -1,30 +1,32 @@
 // Ad and Purchase Configuration for BlitzTap
-// Replace test IDs with production IDs before release
 
 import { Platform } from 'react-native';
+import { TestIds } from 'react-native-google-mobile-ads';
 
-// Google AdMob Test Ad Unit IDs
-// These are Google's official test IDs for development
-// Replace with your actual ad unit IDs before publishing
-export const AD_UNIT_IDS = {
-  // Interstitial ads (shown between game rounds)
+// Production ad unit IDs
+const PRODUCTION_AD_UNIT_IDS = {
   INTERSTITIAL: Platform.select({
     ios: 'ca-app-pub-8327362355420246/1076218724',
-    android: 'ca-app-pub-3940256099942544/1033173712', // Replace with Android ad unit ID
+    android: 'ca-app-pub-8327362355420246/REPLACE_ANDROID_INTERSTITIAL',
   }) as string,
-
-  // Rewarded ads (shown for "Continue" functionality)
   REWARDED: Platform.select({
     ios: 'ca-app-pub-8327362355420246/8683246006',
-    android: 'ca-app-pub-3940256099942544/5224354917', // Replace with Android ad unit ID
+    android: 'ca-app-pub-8327362355420246/REPLACE_ANDROID_REWARDED',
   }) as string,
-
-  // Banner ads (shown on home screen)
   BANNER: Platform.select({
     ios: 'ca-app-pub-8327362355420246/3534861103',
-    android: 'ca-app-pub-3940256099942544/6300978111', // Replace with Android ad unit ID
+    android: 'ca-app-pub-8327362355420246/REPLACE_ANDROID_BANNER',
   }) as string,
 };
+
+// In development, use Google's official test ad unit IDs to avoid policy violations
+export const AD_UNIT_IDS = __DEV__
+  ? {
+      INTERSTITIAL: TestIds.INTERSTITIAL,
+      REWARDED: TestIds.REWARDED,
+      BANNER: TestIds.BANNER,
+    }
+  : PRODUCTION_AD_UNIT_IDS;
 
 // RevenueCat Configuration
 // Replace the test key with production keys before publishing

@@ -7,7 +7,6 @@ import {
   RewardedAd,
   AdEventType,
   RewardedAdEventType,
-  TestIds,
 } from 'react-native-google-mobile-ads';
 import { usePurchase } from '../contexts/PurchaseContext';
 import { AD_UNIT_IDS, AD_CONFIG } from '../utils/adConfig';

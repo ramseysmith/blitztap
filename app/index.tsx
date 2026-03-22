@@ -112,13 +112,14 @@ function ModeCard({
           <Text style={[styles.modeBestValue, { color: card.color }]}>{highScore}</Text>
         </View>
 
-        {/* Title row: name + emoji */}
-        <View style={styles.modeTitleRow}>
-          <Text style={[styles.modeLabel, { color: card.color }]}>{card.label}</Text>
-          <Text style={styles.modeIcon}>{card.icon}</Text>
+        {/* Title + tagline grouped so space-between only affects gap to tap hint */}
+        <View style={styles.modeTextGroup}>
+          <View style={styles.modeTitleRow}>
+            <Text style={[styles.modeLabel, { color: card.color }]}>{card.label}</Text>
+            <Text style={styles.modeIcon}>{card.icon}</Text>
+          </View>
+          <Text style={styles.modeTagline}>{card.tagline}</Text>
         </View>
-
-        <Text style={styles.modeTagline}>{card.tagline}</Text>
 
         {/* Tap hint */}
         <View style={[styles.modeTapHint, { borderColor: card.color + '33', backgroundColor: card.color + '18' }]}>
@@ -540,9 +541,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.backgroundLight,
     borderRadius: 20,
     padding: 16,
-    paddingTop: 52,
+    paddingTop: 76,
     borderWidth: 1,
     alignItems: 'center',
+    height: 200,
+    justifyContent: 'space-between',
   },
   modeBestBadge: {
     position: 'absolute',
@@ -568,11 +571,14 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
     lineHeight: 20,
   },
+  modeTextGroup: {
+    alignItems: 'center',
+  },
   modeTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 6,
+    marginBottom: 8,
   },
   modeIcon: { fontSize: 20 },
   modeLabel: {
@@ -585,7 +591,6 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: 'center',
     lineHeight: 16,
-    marginBottom: 14,
   },
   modeTapHint: {
     borderWidth: 1,

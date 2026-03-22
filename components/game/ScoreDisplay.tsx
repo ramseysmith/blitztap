@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   SharedValue,
@@ -15,6 +15,7 @@ interface ScoreDisplayProps {
   scoreBump?: SharedValue<number>;
   multiplierScale?: SharedValue<number>;
   multiplierGlow?: SharedValue<number>;
+  style?: ViewStyle;
 }
 
 export function ScoreDisplay({
@@ -25,6 +26,7 @@ export function ScoreDisplay({
   scoreBump,
   multiplierScale,
   multiplierGlow,
+  style,
 }: ScoreDisplayProps) {
   const scoreAnimatedStyle = useAnimatedStyle(() => {
     'worklet';
@@ -57,7 +59,7 @@ export function ScoreDisplay({
 
   return (
     <View
-      style={styles.container}
+      style={[styles.container, style]}
       accessible
       accessibilityLabel={scoreAccessLabel}
     >

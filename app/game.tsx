@@ -374,6 +374,7 @@ export default function GameScreen() {
                 scoreBump={animations.scoreBump}
                 multiplierScale={animations.multiplierScale}
                 multiplierGlow={animations.multiplierGlow}
+                style={mode === 'zen' ? { paddingRight: 110 } : undefined}
               />
 
               {state.target && (
