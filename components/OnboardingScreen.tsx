@@ -392,6 +392,180 @@ const TiersDemo = ({ visible }: { visible: boolean }) => {
   );
 };
 
+// ─── Slide 5: Choose Your Mode ────────────────────────────────────────────────
+
+const GameModesDemo = ({ visible }: { visible: boolean }) => {
+  const card1Scale = useSharedValue(0);
+  const card2Scale = useSharedValue(0);
+  const card3Scale = useSharedValue(0);
+
+  useEffect(() => {
+    if (!visible) return;
+    card1Scale.value = withDelay(0, withSpring(1, { damping: 12, stiffness: 160 }));
+    card2Scale.value = withDelay(140, withSpring(1, { damping: 12, stiffness: 160 }));
+    card3Scale.value = withDelay(280, withSpring(1, { damping: 12, stiffness: 160 }));
+    return () => {
+      card1Scale.value = 0;
+      card2Scale.value = 0;
+      card3Scale.value = 0;
+    };
+  }, [visible]);
+
+  const style1 = useAnimatedStyle(() => ({
+    opacity: card1Scale.value,
+    transform: [{ scale: card1Scale.value }, { translateY: interpolate(card1Scale.value, [0, 1], [16, 0]) }],
+  }));
+  const style2 = useAnimatedStyle(() => ({
+    opacity: card2Scale.value,
+    transform: [{ scale: card2Scale.value }, { translateY: interpolate(card2Scale.value, [0, 1], [16, 0]) }],
+  }));
+  const style3 = useAnimatedStyle(() => ({
+    opacity: card3Scale.value,
+    transform: [{ scale: card3Scale.value }, { translateY: interpolate(card3Scale.value, [0, 1], [16, 0]) }],
+  }));
+
+  const modes = [
+    {
+      icon: '⚡',
+      name: 'CLASSIC',
+      desc: 'Survive as long as you can. Miss or time out = game over.',
+      color: Colors.accent,
+      style: style1,
+    },
+    {
+      icon: '⏱',
+      name: 'TIME ATTACK',
+      desc: '60 seconds. Every wrong tap costs you 2s. Score big fast.',
+      color: Colors.error,
+      style: style2,
+    },
+    {
+      icon: '🧘',
+      name: 'ZEN',
+      desc: 'No timer. No game over. Just flow — and half the coins.',
+      color: '#AA44FF',
+      style: style3,
+    },
+  ];
+
+  return (
+    <View style={demoStyles.container}>
+      {modes.map((m, i) => (
+        <Animated.View key={i} style={[demoStyles.modeCard, { borderLeftColor: m.color }, m.style]}>
+          <Text style={demoStyles.modeIcon}>{m.icon}</Text>
+          <View style={demoStyles.modeInfo}>
+            <Text style={[demoStyles.modeName, { color: m.color }]}>{m.name}</Text>
+            <Text style={demoStyles.modeDesc}>{m.desc}</Text>
+          </View>
+        </Animated.View>
+      ))}
+    </View>
+  );
+};
+
+// ─── Slide 6: The Shop ────────────────────────────────────────────────────────
+
+const ShopDemo = ({ visible }: { visible: boolean }) => {
+  const coinScale = useSharedValue(0);
+  const coinsOpacity = useSharedValue(0);
+  const catsOpacity = useSharedValue(0);
+  const itemsOpacity = useSharedValue(0);
+  const shimmer = useSharedValue(0);
+
+  useEffect(() => {
+    if (!visible) return;
+
+    coinScale.value = withDelay(100, withSpring(1, { damping: 8, stiffness: 200 }));
+    coinsOpacity.value = withDelay(100, withTiming(1, { duration: 400 }));
+    catsOpacity.value = withDelay(500, withTiming(1, { duration: 350 }));
+    itemsOpacity.value = withDelay(800, withTiming(1, { duration: 350 }));
+    shimmer.value = withDelay(1000, withRepeat(
+      withSequence(
+        withTiming(1, { duration: 900, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 900, easing: Easing.inOut(Easing.ease) }),
+      ),
+      -1,
+      false,
+    ));
+
+    return () => {
+      coinScale.value = 0;
+      coinsOpacity.value = 0;
+      catsOpacity.value = 0;
+      itemsOpacity.value = 0;
+      shimmer.value = 0;
+    };
+  }, [visible]);
+
+  const coinRowStyle = useAnimatedStyle(() => ({
+    opacity: coinsOpacity.value,
+    transform: [{ scale: coinScale.value }],
+  }));
+  const catsStyle = useAnimatedStyle(() => ({ opacity: catsOpacity.value }));
+  const itemsStyle = useAnimatedStyle(() => ({ opacity: itemsOpacity.value }));
+
+  const legendaryStyle = useAnimatedStyle(() => ({
+    shadowOpacity: interpolate(shimmer.value, [0, 1], [0.3, 0.9]),
+    shadowRadius: interpolate(shimmer.value, [0, 1], [4, 12]),
+    borderColor: `rgba(255,215,0,${interpolate(shimmer.value, [0, 1], [0.4, 1])})`,
+  }));
+
+  const categories = ['SHAPES', 'BACKGROUNDS', 'EFFECTS'];
+  const items = [
+    { label: 'Neon Glow', rarity: 'RARE', rarityColor: '#4488FF', price: '150' },
+    { label: 'Cosmic', rarity: 'EPIC', rarityColor: '#AA44FF', price: '300' },
+    { label: 'Inferno', rarity: 'LEGENDARY', rarityColor: '#FFD700', price: '500', legendary: true },
+  ];
+
+  return (
+    <View style={demoStyles.container}>
+      {/* Coin balance */}
+      <Animated.View style={[demoStyles.coinRow, coinRowStyle]}>
+        <Text style={demoStyles.coinIcon}>🪙</Text>
+        <Text style={demoStyles.coinBalance}>1,240</Text>
+        <Text style={demoStyles.coinLabel}>coins</Text>
+      </Animated.View>
+
+      {/* Category pills */}
+      <Animated.View style={[demoStyles.catRow, catsStyle]}>
+        {categories.map((c, i) => (
+          <View key={i} style={[demoStyles.catPill, i === 0 && demoStyles.catPillActive]}>
+            <Text style={[demoStyles.catPillText, i === 0 && demoStyles.catPillTextActive]}>{c}</Text>
+          </View>
+        ))}
+      </Animated.View>
+
+      {/* Shop items */}
+      <Animated.View style={[demoStyles.shopItems, itemsStyle]}>
+        {items.map((item, i) => (
+          <Animated.View
+            key={i}
+            style={[
+              demoStyles.shopItem,
+              item.legendary && legendaryStyle,
+              item.legendary && { borderWidth: 1.5, shadowColor: '#FFD700', shadowOffset: { width: 0, height: 0 } },
+            ]}
+          >
+            <View style={[demoStyles.shopItemSwatch, { backgroundColor: item.rarityColor + '33' }]}>
+              <ShapeCircle size={22} color={item.rarityColor} />
+            </View>
+            <View style={demoStyles.shopItemInfo}>
+              <Text style={demoStyles.shopItemName}>{item.label}</Text>
+              <View style={[demoStyles.rarityBadge, { backgroundColor: item.rarityColor + '22' }]}>
+                <Text style={[demoStyles.rarityText, { color: item.rarityColor }]}>{item.rarity}</Text>
+              </View>
+            </View>
+            <View style={demoStyles.shopItemPrice}>
+              <Text style={demoStyles.priceIcon}>🪙</Text>
+              <Text style={demoStyles.priceText}>{item.price}</Text>
+            </View>
+          </Animated.View>
+        ))}
+      </Animated.View>
+    </View>
+  );
+};
+
 // ─── Slide data ───────────────────────────────────────────────────────────────
 
 const SLIDES = [
@@ -418,6 +592,18 @@ const SLIDES = [
     subtitle: 'Unlock harder tiers as your score climbs',
     accentColor: Colors.success,
     Demo: TiersDemo,
+  },
+  {
+    title: 'CHOOSE YOUR\nMODE',
+    subtitle: 'Three ways to play. Pick the vibe that fits.',
+    accentColor: '#AA44FF',
+    Demo: GameModesDemo,
+  },
+  {
+    title: 'EARN\n& SPEND',
+    subtitle: 'Win coins every game. Spend them on skins, backgrounds & effects.',
+    accentColor: '#FFD700',
+    Demo: ShopDemo,
   },
 ];
 
@@ -806,6 +992,136 @@ const demoStyles = StyleSheet.create({
     height: 20,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // Slide 5 – Game Modes
+  modeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '90%',
+    backgroundColor: Colors.backgroundLight,
+    borderRadius: 14,
+    borderLeftWidth: 4,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    gap: 12,
+  },
+  modeIcon: {
+    fontSize: 24,
+  },
+  modeInfo: {
+    flex: 1,
+  },
+  modeName: {
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginBottom: 2,
+  },
+  modeDesc: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    lineHeight: 15,
+  },
+  // Slide 6 – Shop
+  coinRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  coinIcon: {
+    fontSize: 28,
+  },
+  coinBalance: {
+    fontSize: 36,
+    fontWeight: '900',
+    color: '#FFD700',
+    fontVariant: ['tabular-nums'],
+    textShadowColor: '#FFD700',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
+  },
+  coinLabel: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    fontWeight: '600',
+    alignSelf: 'flex-end',
+    marginBottom: 4,
+  },
+  catRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 4,
+  },
+  catPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 20,
+    backgroundColor: Colors.backgroundLight,
+  },
+  catPillActive: {
+    backgroundColor: Colors.accent + '33',
+  },
+  catPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+    letterSpacing: 1,
+  },
+  catPillTextActive: {
+    color: Colors.accent,
+  },
+  shopItems: {
+    width: '90%',
+    gap: 8,
+  },
+  shopItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.backgroundLight,
+    borderRadius: 12,
+    padding: 10,
+    gap: 10,
+  },
+  shopItemSwatch: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shopItemInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  shopItemName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  rarityBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  rarityText: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  shopItemPrice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  priceIcon: {
+    fontSize: 13,
+  },
+  priceText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFD700',
   },
 });
 
