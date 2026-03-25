@@ -13,7 +13,7 @@ import { AccessibilityProvider } from '../contexts/AccessibilityContext';
 import { ShopProvider } from '../contexts/ShopContext';
 import { Colors } from '../utils/colors';
 import AnimatedSplash from '../components/AnimatedSplash';
-import { REVENUECAT_CONFIG } from '../utils/adConfig';
+import { REVENUECAT_CONFIG, TEST_DEVICE_IDS } from '../utils/adConfig';
 
 // Keep the native splash screen visible while we load resources
 SplashScreen.preventAutoHideAsync();
@@ -45,6 +45,8 @@ export default function RootLayout() {
         }
 
         // Step C: Initialize AdMob AFTER ATT resolves
+        // Register test devices so they always receive test ads in any environment
+        await mobileAds().setRequestConfiguration({ testDeviceIdentifiers: TEST_DEVICE_IDS });
         await mobileAds().initialize();
 
         setIsInitialized(true);

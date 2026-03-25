@@ -19,8 +19,13 @@ const PRODUCTION_AD_UNIT_IDS = {
   }) as string,
 };
 
-// In development, use Google's official test ad unit IDs to avoid policy violations
-export const AD_UNIT_IDS = __DEV__
+// Use test ads in dev builds AND TestFlight/internal preview builds
+const isTestBuild =
+  __DEV__ ||
+  process.env.APP_VARIANT === 'development' ||
+  process.env.APP_VARIANT === 'preview';
+
+export const AD_UNIT_IDS = isTestBuild
   ? {
       INTERSTITIAL: TestIds.INTERSTITIAL,
       REWARDED: TestIds.REWARDED,
@@ -43,6 +48,11 @@ export const REVENUECAT_CONFIG = {
     android: 'blitztap_premium',
   }) as string,
 };
+
+// Registered test devices — always receive test ads regardless of environment
+export const TEST_DEVICE_IDS = [
+  'ACE862E9-099A-4B0B-A553-7D075641C3CF', // Ramsey's test device
+];
 
 // Ad display rules
 export const AD_CONFIG = {
