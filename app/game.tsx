@@ -80,6 +80,7 @@ export default function GameScreen() {
   // Pause state
   const [isPaused, setIsPaused] = useState(false);
   const [pendingResume, setPendingResume] = useState(false);
+  const [pendingContinue, setPendingContinue] = useState(false);
 
   // Session tracking
   const gameStartTimeRef = useRef<number>(0);
@@ -291,9 +292,23 @@ export default function GameScreen() {
 
   // ─── Continue (rewarded ad) ───
   const onContinue = useCallback(async () => {
-    const rewarded = await showRewarded();
-    if (rewarded) { continueGame(); }
-  }, [showRewarded, continueGame]);
+    if (isRewardedReady) {
+      const rewarded = await showRewarded();
+      if (rewarded) { setPendingContinue(true); }
+    } else {
+      // Ad not loaded — let the player continue anyway
+      setPendingContinue(true);
+    }
+  }, [showRewarded, isRewardedReady]);
+
+  const onContinueCountdownComplete = useCallback(() => {
+    setPendingContinue(false);
+    setCorrectOptionId(null);
+    setWrongOptionId(null);
+    setShowCorrectReveal(false);
+    setIsTimedOut(false);
+    continueGame();
+  }, [continueGame]);
 
   // ─── Remove ads ───
   const onRemoveAds = useCallback(async () => {
@@ -305,7 +320,12 @@ export default function GameScreen() {
     }
   }, [purchaseRemoveAds]);
 
-  const onHome = useCallback(() => { router.back(); }, [router]);
+  const onHome = useCallback(async () => {
+    if (!isProUser) {
+      await showInterstitial();
+    }
+    router.back();
+  }, [router, showInterstitial, isProUser]);
 
   // ─── Pause overlay ───
   const onResume = useCallback(() => {
@@ -332,6 +352,14 @@ export default function GameScreen() {
       return (
         <View style={styles.gameContainer}>
           <CountdownReady onComplete={onResumeCountdownComplete} />
+        </View>
+      );
+    }
+
+    if (pendingContinue) {
+      return (
+        <View style={styles.gameContainer}>
+          <CountdownReady onComplete={onContinueCountdownComplete} />
         </View>
       );
     }
@@ -459,7 +487,8 @@ export default function GameScreen() {
               roundCoins={Math.max(0, state.roundCoins)}
               onPlayAgain={onPlayAgain}
               onHome={onHome}
-              rewardedReady={isRewardedReady && mode === 'classic'}
+              rewardedReady={mode === 'classic'}
+              isRewardedLoading={!isRewardedReady && mode === 'classic'}
               hasUsedContinue={state.hasUsedContinue}
               onContinue={onContinue}
               onRemoveAds={onRemoveAds}

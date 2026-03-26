@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useSettings } from '../contexts/SettingsContext';
 import { usePurchase } from '../contexts/PurchaseContext';
+import Constants from 'expo-constants';
 import { Colors } from '../utils/colors';
 
 export default function SettingsScreen() {
@@ -141,7 +142,7 @@ export default function SettingsScreen() {
 
       {/* Footer */}
       <View style={[styles.footer, { paddingBottom: insets.bottom + 20 }]}>
-        <Text style={styles.versionText}>BlitzTap v1.0.0</Text>
+        <Text style={styles.versionText}>BlitzTap v{Constants.expoConfig?.version ?? '1.0.0'}</Text>
       </View>
     </View>
   );

@@ -40,6 +40,10 @@ export function useAds() {
   // Promise resolvers for showing ads
   const interstitialResolve = useRef<(() => void) | null>(null);
   const rewardedResolve = useRef<((rewarded: boolean) => void) | null>(null);
+  const rewardedEarned = useRef<boolean>(false);
+
+  // Guards to ensure CLOSED events are only processed for the ad type we actually showed
+  const interstitialIsShowing = useRef(false);
 
   // Calculate retry delay with exponential backoff
   const getRetryDelay = (retryCount: number): number => {
@@ -82,6 +86,7 @@ export function useAds() {
       AdEventType.ERROR,
       (error: Error) => {
         console.error('Interstitial ad error:', error);
+        interstitialIsShowing.current = false;
         setInterstitialLoaded(false);
 
         // Retry with exponential backoff
@@ -103,6 +108,10 @@ export function useAds() {
     const interstitialClosedListener = interstitialAd.addAdEventListener(
       AdEventType.CLOSED,
       () => {
+        // Guard against spurious CLOSED events fired by other ad types (e.g. rewarded)
+        if (!interstitialIsShowing.current) return;
+        interstitialIsShowing.current = false;
+
         setInterstitialLoaded(false);
         lastAdShownTimestamp.current = Date.now();
         roundsSinceLastAd.current = 0;
@@ -138,6 +147,7 @@ export function useAds() {
           rewardedResolve.current(false);
           rewardedResolve.current = null;
         }
+        rewardedEarned.current = false;
 
         // Retry with exponential backoff
         const delay = getRetryDelay(rewardedRetryCount.current);
@@ -156,11 +166,8 @@ export function useAds() {
     const rewardedEarnedListener = rewardedAd.addAdEventListener(
       RewardedAdEventType.EARNED_REWARD,
       () => {
-        // User earned the reward by watching the ad
-        if (rewardedResolve.current) {
-          rewardedResolve.current(true);
-          rewardedResolve.current = null;
-        }
+        // Mark reward as earned — resolve on CLOSED so the ad is fully dismissed first
+        rewardedEarned.current = true;
       }
     );
 
@@ -169,11 +176,12 @@ export function useAds() {
       () => {
         setRewardedLoaded(false);
 
-        // If promise hasn't been resolved yet (user closed early), resolve with false
+        // Resolve with whether reward was earned
         if (rewardedResolve.current) {
-          rewardedResolve.current(false);
+          rewardedResolve.current(rewardedEarned.current);
           rewardedResolve.current = null;
         }
+        rewardedEarned.current = false;
 
         // Preload next ad
         loadRewarded();
@@ -237,11 +245,13 @@ export function useAds() {
 
     return new Promise((resolve) => {
       interstitialResolve.current = resolve;
+      interstitialIsShowing.current = true;
 
       try {
         interstitialAd.show();
       } catch (error) {
         console.error('Error showing interstitial:', error);
+        interstitialIsShowing.current = false;
         interstitialResolve.current = null;
         resolve();
       }

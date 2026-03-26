@@ -24,6 +24,7 @@ interface GameOverOverlayProps {
   onPlayAgain: () => void;
   onHome: () => void;
   rewardedReady?: boolean;
+  isRewardedLoading?: boolean;
   hasUsedContinue?: boolean;
   onContinue?: () => void;
   onRemoveAds?: () => void;
@@ -54,6 +55,7 @@ export function GameOverOverlay({
   onPlayAgain,
   onHome,
   rewardedReady = false,
+  isRewardedLoading = false,
   hasUsedContinue = false,
   onContinue,
   onRemoveAds,
@@ -342,9 +344,9 @@ export function GameOverOverlay({
               onPressIn={handleContinuePressIn}
               onPressOut={handleContinuePressOut}
               accessibilityRole="button"
-              accessibilityLabel="Continue — watch ad to keep playing"
+              accessibilityLabel="Keep Going — watch ad to keep playing"
             >
-              <Text style={styles.continueButtonText}>Continue</Text>
+              <Text style={styles.continueButtonText}>Keep Going</Text>
               <Text style={styles.continueSubtext}>Watch ad to keep playing</Text>
             </Pressable>
           </Animated.View>

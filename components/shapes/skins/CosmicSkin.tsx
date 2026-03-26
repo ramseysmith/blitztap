@@ -53,22 +53,44 @@ export function CosmicSkin({ shape, color, size }: Props) {
   );
 
   if (shape === 'triangle') {
+    const triH = size * 0.85;
+    const triW = size * 0.43;
     return (
       <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'flex-end', overflow: 'hidden' }}>
+        {/* Color tint triangle (back layer) */}
+        <View style={[styles.triangleBase, {
+          borderBottomColor: color + '35',
+          borderBottomWidth: triH,
+          borderLeftWidth: triW,
+          borderRightWidth: triW,
+        }]} />
+        {/* Dark base triangle (slightly inset to let color show at edges) */}
         <View style={[styles.triangleBase, {
           borderBottomColor: '#0A0A1A',
-          borderBottomWidth: size * 0.85,
-          borderLeftWidth: size * 0.43,
-          borderRightWidth: size * 0.43,
+          borderBottomWidth: triH - 4,
+          borderLeftWidth: triW - 2,
+          borderRightWidth: triW - 2,
+          bottom: 0,
         }]} />
-        {/* Overlay stars clipped to triangle via absolute positioning */}
+        {/* Nebula haze (centered in triangle) */}
+        <View style={{
+          position: 'absolute',
+          bottom: triH * 0.25,
+          width: size * 0.35,
+          height: size * 0.35,
+          borderRadius: size * 0.175,
+          backgroundColor: color + '20',
+          alignSelf: 'center',
+        }} />
+        {/* Star dots */}
         {STAR_POSITIONS.slice(0, 5).map((pos, i) => (
           <View key={i} style={[styles.star, {
             left: pos.x * size,
             bottom: pos.y * size * 0.8,
-            width: 2, height: 2,
-            backgroundColor: i % 2 === 0 ? color : '#FFFFFF',
-            opacity: 0.7,
+            width: i % 3 === 0 ? 3 : 2,
+            height: i % 3 === 0 ? 3 : 2,
+            backgroundColor: i % 4 === 0 ? color : '#FFFFFF',
+            opacity: 0.6 + (i % 3) * 0.15,
           }]} />
         ))}
       </View>
