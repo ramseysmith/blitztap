@@ -18,6 +18,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAchievementContext } from '../contexts/AchievementContext';
 import { useShop } from '../contexts/ShopContext';
 import { useFeedback } from '../hooks/useFeedback';
 import {
@@ -220,6 +221,7 @@ export default function ShopScreen() {
   const insets = useSafeAreaInsets();
   const { inventory, coins, purchaseItem, equipItem, unequipItem, canAfford, refreshCoins } = useShop();
   const feedback = useFeedback();
+  const { checkAfterPurchase } = useAchievementContext();
   const [activeTab, setActiveTab] = useState<ShopCategory>('shapes');
   const [selectedItem, setSelectedItem] = useState<ShopItem | null>(null);
 
@@ -258,10 +260,12 @@ export default function ShopScreen() {
     feedback.onLevelUp();
     const success = await purchaseItem(selectedItem.id);
     setSelectedItem(null);
-    if (!success) {
+    if (success) {
+      checkAfterPurchase();
+    } else {
       Alert.alert('Purchase failed', 'Something went wrong. Please try again.');
     }
-  }, [selectedItem, purchaseItem, feedback]);
+  }, [selectedItem, purchaseItem, feedback, checkAfterPurchase]);
 
   const items = ITEMS_BY_CATEGORY[activeTab];
 

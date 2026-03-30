@@ -33,6 +33,7 @@ interface GameOverOverlayProps {
   isPurchasing?: boolean;
   tier?: number;
   mode?: string;
+  onShare?: () => void;
 }
 
 const TIER_NAMES: Record<number, string> = {
@@ -64,6 +65,7 @@ export function GameOverOverlay({
   isPurchasing = false,
   tier = 1,
   mode = 'classic',
+  onShare,
 }: GameOverOverlayProps) {
   const feedback = useFeedback();
   const { reduceMotion } = useAccessibility();
@@ -295,14 +297,18 @@ export function GameOverOverlay({
 
   const handleShare = async () => {
     feedback.onButtonPress();
-    const tierName = TIER_NAMES[tier] ?? 'Beginner';
-    const message = isNewHighScore
-      ? `🏆 NEW BEST: I scored ${score} in BlitzTap and reached ${tierName}! Who can beat this? ⚡`
-      : `I scored ${score} in BlitzTap and reached ${tierName}! Can you beat me? 🔥⚡`;
-    try {
-      await Share.share({ message });
-    } catch {
-      // User dismissed or share not available
+    if (onShare) {
+      onShare();
+    } else {
+      const tierName = TIER_NAMES[tier] ?? 'Beginner';
+      const message = isNewHighScore
+        ? `🏆 NEW BEST: I scored ${score} in BlitzTap and reached ${tierName}! Who can beat this? ⚡`
+        : `I scored ${score} in BlitzTap and reached ${tierName}! Can you beat me? 🔥⚡`;
+      try {
+        await Share.share({ message });
+      } catch {
+        // User dismissed or share not available
+      }
     }
   };
 

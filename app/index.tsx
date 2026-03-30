@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -24,14 +24,18 @@ import { BannerAd, BannerAdSize } from 'react-native-google-mobile-ads';
 import { useGame } from '../contexts/GameContext';
 import { usePurchase } from '../contexts/PurchaseContext';
 import { useShop } from '../contexts/ShopContext';
+import { useLevel } from '../contexts/LevelContext';
+import { useAchievementContext } from '../contexts/AchievementContext';
 import { useFeedback } from '../hooks/useFeedback';
 import { CoinDisplay } from '../components/ui/CoinDisplay';
+import XPBar from '../components/ui/XPBar';
 import { Colors } from '../utils/colors';
 import { AD_UNIT_IDS } from '../utils/adConfig';
 import { SPRING_CONFIG } from '../hooks/useGameAnimations';
 import OnboardingScreen from '../components/OnboardingScreen';
 import { getOnboardingComplete, setOnboardingComplete, getModeHighScores } from '../utils/storage';
 import { getTodayResult, getTodayDateString } from '../utils/dailyChallenge';
+import { getDailyChallengeStreak } from '../utils/achievementStorage';
 import type { GameMode } from '../contexts/GameContext';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -68,6 +72,14 @@ const MODE_CARDS: ModeCardData[] = [
     tagline: 'No rush. No pressure. Just tap.',
     color: '#44DDAA',
   },
+];
+
+const CONTEXTUAL_HINTS = [
+  'Share your code and earn bonus coins!',
+  'New cosmetics in the shop!',
+  'How high can you level up?',
+  'Complete daily challenges for streak rewards!',
+  'Unlock all 40 achievements!',
 ];
 
 function ModeCard({
@@ -112,7 +124,7 @@ function ModeCard({
           <Text style={[styles.modeBestValue, { color: card.color }]}>{highScore}</Text>
         </View>
 
-        {/* Title + tagline grouped so space-between only affects gap to tap hint */}
+        {/* Title + tagline */}
         <View style={styles.modeTextGroup}>
           <View style={styles.modeTitleRow}>
             <Text style={[styles.modeLabel, { color: card.color }]}>{card.label}</Text>
@@ -135,13 +147,17 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { state } = useGame();
   const { isProUser, removeAdsPrice, purchaseRemoveAds } = usePurchase();
-  const { coins } = useShop();
+  const { coins, refreshCoins } = useShop();
+  const { playerLevel, xpNeeded } = useLevel();
+  const { unclaimedCount, completedCount } = useAchievementContext();
   const feedback = useFeedback();
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [modeHighScores, setModeHighScores] = useState({ classic: 0, timeAttack: 0, zen: 0 });
   const [dailyStatus, setDailyStatus] = useState<{ attempted: boolean; score: number; completed: boolean } | null>(null);
+  const [dailyStreak, setDailyStreak] = useState(0);
   const [todayDate] = useState(getTodayDateString());
+  const [hintIndex, setHintIndex] = useState(0);
 
   useEffect(() => {
     getOnboardingComplete().then((done) => {
@@ -149,10 +165,19 @@ export default function HomeScreen() {
     });
   }, []);
 
-  // Refresh data each time screen gains focus (after returning from game)
+  // Rotate hints
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setHintIndex(i => (i + 1) % CONTEXTUAL_HINTS.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Refresh data each time screen gains focus
   useFocusEffect(
     useCallback(() => {
       getModeHighScores().then(setModeHighScores);
+      refreshCoins();
 
       getTodayResult().then((result) => {
         if (result) {
@@ -161,6 +186,8 @@ export default function HomeScreen() {
           setDailyStatus({ attempted: false, score: 0, completed: false });
         }
       });
+
+      getDailyChallengeStreak().then(setDailyStreak);
     }, []),
   );
 
@@ -218,16 +245,6 @@ export default function HomeScreen() {
     router.push('/settings');
   };
 
-  const handleStats = () => {
-    feedback.onButtonPress();
-    router.push('/stats');
-  };
-
-  const handleShop = () => {
-    feedback.onButtonPress();
-    router.push('/shop');
-  };
-
   const handleDailyChallenge = () => {
     feedback.onButtonPress();
     router.push('/daily');
@@ -265,9 +282,12 @@ export default function HomeScreen() {
         <View style={[styles.bgShape, styles.bgShape3]} />
       </View>
 
-      {/* Header */}
+      {/* Top bar: Level badge (left), BLITZTAP (center), Coin balance (right) */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
+          <View style={styles.levelBadge}>
+            <Text style={styles.levelBadgeText}>Lv {playerLevel.level}</Text>
+          </View>
           <Pressable
             onPress={handleSettings}
             style={styles.iconButton}
@@ -277,40 +297,24 @@ export default function HomeScreen() {
           >
             <Text style={styles.headerIcon}>⚙️</Text>
           </Pressable>
-          <Pressable
-            onPress={handleStats}
-            style={styles.iconButton}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            accessibilityRole="button"
-            accessibilityLabel="View stats"
-          >
-            <Text style={styles.headerIcon}>📊</Text>
-          </Pressable>
         </View>
+        <Animated.Text style={[styles.headerTitle, titleGlowStyle]}>BLITZTAP</Animated.Text>
         <View style={styles.headerRight}>
-          <Pressable
-            onPress={handleShop}
-            style={styles.iconButton}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            accessibilityRole="button"
-            accessibilityLabel="Open shop"
-          >
-            <Text style={styles.headerIcon}>🛍</Text>
-          </Pressable>
           <CoinDisplay coins={state.totalCoins} />
         </View>
       </View>
+
+      {/* XP Progress Bar */}
+      <XPBar
+        level={playerLevel.level}
+        currentXP={playerLevel.currentXP}
+        xpNeeded={xpNeeded}
+      />
 
       <ScrollView
         contentContainerStyle={[styles.scrollContent, { paddingBottom: isProUser ? insets.bottom + 20 : insets.bottom + 80 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Title */}
-        <View style={styles.titleContainer}>
-          <Animated.Text style={[styles.title, titleGlowStyle]}>BLITZ</Animated.Text>
-          <Animated.Text style={[styles.titleAccent, titleGlowStyle]}>TAP</Animated.Text>
-        </View>
-
         {/* Daily Challenge Card */}
         <Pressable onPress={handleDailyChallenge} style={styles.dailyChallengeWrapper}>
           <Animated.View
@@ -324,7 +328,10 @@ export default function HomeScreen() {
               <Text style={styles.dailyIcon}>📅</Text>
               <View>
                 <Text style={styles.dailyTitle}>Daily Challenge</Text>
-                <Text style={styles.dailyDate}>{formatDate(todayDate)}</Text>
+                <Text style={styles.dailyDate}>
+                  {formatDate(todayDate)}
+                  {dailyStreak > 0 && ` — Day ${dailyStreak} streak!`}
+                </Text>
               </View>
             </View>
             <View style={styles.dailyRight}>
@@ -365,6 +372,54 @@ export default function HomeScreen() {
             />
           ))}
         </ScrollView>
+
+        {/* Quick Actions Row */}
+        <View style={styles.quickActionsRow}>
+          <Pressable
+            style={styles.quickAction}
+            onPress={() => { feedback.onButtonPress(); router.push('/achievements'); }}
+            accessibilityRole="button"
+            accessibilityLabel="Achievements"
+          >
+            <Text style={styles.quickActionIcon}>🏆</Text>
+            <Text style={styles.quickActionLabel}>Achievements</Text>
+            {unclaimedCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{unclaimedCount}</Text>
+              </View>
+            )}
+          </Pressable>
+          <Pressable
+            style={styles.quickAction}
+            onPress={() => { feedback.onButtonPress(); router.push('/shop'); }}
+            accessibilityRole="button"
+            accessibilityLabel="Shop"
+          >
+            <Text style={styles.quickActionIcon}>🛍</Text>
+            <Text style={styles.quickActionLabel}>Shop</Text>
+          </Pressable>
+          <Pressable
+            style={styles.quickAction}
+            onPress={() => { feedback.onButtonPress(); router.push('/referral'); }}
+            accessibilityRole="button"
+            accessibilityLabel="Invite friends"
+          >
+            <Text style={styles.quickActionIcon}>👥</Text>
+            <Text style={styles.quickActionLabel}>Invite</Text>
+          </Pressable>
+          <Pressable
+            style={styles.quickAction}
+            onPress={() => { feedback.onButtonPress(); router.push('/stats'); }}
+            accessibilityRole="button"
+            accessibilityLabel="Stats"
+          >
+            <Text style={styles.quickActionIcon}>📊</Text>
+            <Text style={styles.quickActionLabel}>Stats</Text>
+          </Pressable>
+        </View>
+
+        {/* Contextual Hint */}
+        <Text style={styles.contextualHint}>{CONTEXTUAL_HINTS[hintIndex]}</Text>
 
         {/* Remove Ads button */}
         {!isProUser && (
@@ -419,11 +474,32 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    marginBottom: 8,
+    marginBottom: 4,
     zIndex: 1,
   },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: Colors.textPrimary,
+    letterSpacing: 4,
+    textShadowColor: Colors.accent,
+    textShadowOffset: { width: 0, height: 0 },
+  },
+  levelBadge: {
+    backgroundColor: Colors.accent + '22',
+    borderWidth: 1,
+    borderColor: Colors.accent + '55',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  levelBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: Colors.accent,
+  },
   iconButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -435,33 +511,12 @@ const styles = StyleSheet.create({
   headerIcon: { fontSize: 20 },
   scrollContent: {
     paddingHorizontal: 0,
-  },
-  titleContainer: {
-    alignItems: 'center',
-    marginBottom: 24,
-    paddingHorizontal: 20,
-  },
-  title: {
-    fontSize: 72,
-    fontWeight: 'bold',
-    color: Colors.textPrimary,
-    letterSpacing: 10,
-    textShadowColor: Colors.accent,
-    textShadowOffset: { width: 0, height: 0 },
-  },
-  titleAccent: {
-    fontSize: 72,
-    fontWeight: 'bold',
-    color: Colors.accent,
-    letterSpacing: 10,
-    marginTop: -12,
-    textShadowColor: Colors.accent,
-    textShadowOffset: { width: 0, height: 0 },
+    paddingTop: 8,
   },
   // Daily Challenge
   dailyChallengeWrapper: {
     paddingHorizontal: 16,
-    marginBottom: 28,
+    marginBottom: 24,
   },
   dailyChallengeCard: {
     borderRadius: 16,
@@ -487,6 +542,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    flex: 1,
   },
   dailyIcon: { fontSize: 28 },
   dailyTitle: {
@@ -610,6 +666,57 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 2.5,
+  },
+  // Quick Actions
+  quickActionsRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    marginTop: 24,
+    gap: 10,
+  },
+  quickAction: {
+    flex: 1,
+    backgroundColor: Colors.backgroundLight,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    position: 'relative',
+  },
+  quickActionIcon: {
+    fontSize: 22,
+    marginBottom: 4,
+  },
+  quickActionLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  badge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    backgroundColor: Colors.error,
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: Colors.textPrimary,
+  },
+  // Contextual hint
+  contextualHint: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 16,
+    marginHorizontal: 20,
+    opacity: 0.7,
+    fontStyle: 'italic',
   },
   removeAdsButton: {
     marginHorizontal: 20,

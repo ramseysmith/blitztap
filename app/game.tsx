@@ -5,6 +5,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGame, GameMode } from '../contexts/GameContext';
 import { useShop } from '../contexts/ShopContext';
 import { usePurchase } from '../contexts/PurchaseContext';
+import { useLevel, XP_CONFIG } from '../contexts/LevelContext';
+import { useAchievementContext } from '../contexts/AchievementContext';
 import { useGameEngine } from '../hooks/useGameEngine';
 import { useFeedback } from '../hooks/useFeedback';
 import { useGameAnimations } from '../hooks/useGameAnimations';
@@ -23,10 +25,14 @@ import { TierTransition } from '../components/game/TierTransition';
 import { StreakMilestone } from '../components/game/StreakMilestone';
 import { GameBackground } from '../components/backgrounds/GameBackground';
 import { TapEffectRenderer, TapEvent } from '../components/effects/TapEffectRenderer';
+import AchievementToast from '../components/ui/AchievementToast';
+import LevelUpOverlay from '../components/ui/LevelUpOverlay';
+import ShareCardRenderer, { ShareCardRendererHandle } from '../components/sharecard/ShareCardRenderer';
 import { Colors, PieceColor } from '../utils/colors';
 import { calculateMultiplier, calculateTier } from '../utils/scoring';
-import { getLastReviewGame, setLastReviewGame } from '../utils/storage';
+import { getLastReviewGame, setLastReviewGame, getModeHighScores } from '../utils/storage';
 import { recordGameResult } from '../utils/stats';
+import type { ShareCardData } from '../components/sharecard/ShareCard';
 
 // Dev-only FPS counter
 let FpsCounter: React.ComponentType | null = null;
@@ -59,13 +65,20 @@ export default function GameScreen() {
   const { state, dispatch } = useGame();
   const { inventory } = useShop();
   const { isProUser, removeAdsPrice, purchaseRemoveAds } = usePurchase();
+  const { addXP, playerLevel, pendingLevelUps, clearPendingLevelUp } = useLevel();
+  const { checkAfterGame, checkAfterAction, pendingToasts, dismissToast } = useAchievementContext();
   const feedback = useFeedback();
   const animations = useGameAnimations();
   const { showInterstitial, showRewarded, shouldShowInterstitial, isRewardedReady } = useAds();
+  const shareCardRef = useRef<ShareCardRendererHandle>(null);
+  const previousHighScoreRef = useRef(0);
 
-  // Set mode in context when screen mounts
+  // Set mode in context when screen mounts + load previous high score
   useEffect(() => {
     dispatch({ type: 'SET_MODE', payload: { mode } });
+    getModeHighScores().then(scores => {
+      previousHighScoreRef.current = scores[mode] ?? 0;
+    });
   }, [mode]);
 
   // Track tapped options for animations
@@ -212,7 +225,7 @@ export default function GameScreen() {
     }
   }, [state.status]);
 
-  // ─── Record stats on game over ───
+  // ─── Record stats + award XP + check achievements on game over ───
   useEffect(() => {
     if (state.status === 'gameover') {
       const timePlayed = gameStartTimeRef.current > 0
@@ -221,15 +234,34 @@ export default function GameScreen() {
       gameStartTimeRef.current = 0;
 
       const tier = calculateTier(state.score);
+      const correctTaps = Math.max(0, state.score);
+      const roundCoins = Math.max(0, state.roundCoins);
+
       recordGameResult({
-        score: Math.max(0, state.score),
-        correctTaps: Math.max(0, state.score),
+        score: correctTaps,
+        correctTaps,
         maxStreak: Math.max(0, state.maxStreak),
         tier,
-        coinsEarned: Math.max(0, state.roundCoins),
+        coinsEarned: roundCoins,
         timePlayed,
         shapeTaps: sessionShapeTapsRef.current,
         mode,
+      });
+
+      // Award XP at end of game
+      let xp = XP_CONFIG.gameComplete + (correctTaps * XP_CONFIG.correctTap);
+      if (state.isNewHighScore) xp += XP_CONFIG.newHighScore;
+      addXP(xp);
+
+      // Check achievements
+      checkAfterGame({
+        score: correctTaps,
+        maxStreak: Math.max(0, state.maxStreak),
+        tier,
+        mode,
+        isNewHighScore: state.isNewHighScore,
+        coinsEarned: roundCoins,
+        correctTaps,
       });
 
       maybeRequestReview(state.score, state.roundsPlayedThisSession);
@@ -346,6 +378,39 @@ export default function GameScreen() {
       router.back();
     }
   }, [state.status, zenQuit, router]);
+
+  // ─── Share card handler ───
+  const handleShareCard = useCallback(async () => {
+    const tier = calculateTier(state.score);
+    const multiplier = calculateMultiplier(state.maxStreak);
+
+    const MODE_BADGES: Record<string, string> = {
+      classic: 'CLASSIC',
+      timeAttack: 'TIME ATTACK',
+      zen: 'ZEN',
+    };
+
+    const cardData: ShareCardData = {
+      variant: state.isNewHighScore ? 'highscore' : 'score',
+      score: Math.max(0, state.score),
+      mode,
+      modeBadge: MODE_BADGES[mode] ?? 'CLASSIC',
+      tier,
+      tierLabel: '',
+      maxStreak: Math.max(0, state.maxStreak),
+      multiplier,
+      correctTaps: Math.max(0, state.score),
+      isNewHighScore: state.isNewHighScore,
+      previousBest: previousHighScoreRef.current,
+      playerLevel: playerLevel.level,
+    };
+
+    const shared = await shareCardRef.current?.shareCard(cardData);
+    if (shared) {
+      checkAfterAction('share');
+      addXP(XP_CONFIG.shareScore);
+    }
+  }, [state.score, state.maxStreak, state.isNewHighScore, mode, playerLevel.level, checkAfterAction, addXP]);
 
   const renderContent = () => {
     if (pendingResume) {
@@ -497,6 +562,7 @@ export default function GameScreen() {
               isPurchasing={isPurchasing}
               tier={tier}
               mode={mode}
+              onShare={handleShareCard}
             />
           </View>
         );
@@ -520,6 +586,21 @@ export default function GameScreen() {
       )}
 
       {renderContent()}
+
+      {/* Achievement Toast */}
+      <AchievementToast
+        achievement={pendingToasts.length > 0 ? pendingToasts[0] : null}
+        onDismiss={dismissToast}
+      />
+
+      {/* Level Up Overlay */}
+      <LevelUpOverlay
+        reward={pendingLevelUps.length > 0 ? pendingLevelUps[0] : null}
+        onDismiss={clearPendingLevelUp}
+      />
+
+      {/* Off-screen share card renderer */}
+      <ShareCardRenderer ref={shareCardRef} />
 
       {__DEV__ && FpsCounter && <FpsCounter />}
     </View>

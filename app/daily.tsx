@@ -5,6 +5,9 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFeedback } from '../hooks/useFeedback';
 import { useGameAnimations } from '../hooks/useGameAnimations';
+import { useLevel, XP_CONFIG } from '../contexts/LevelContext';
+import { useAchievementContext } from '../contexts/AchievementContext';
+import AchievementToast from '../components/ui/AchievementToast';
 import { GameBoard } from '../components/game/GameBoard';
 import { CountdownReady } from '../components/game/CountdownReady';
 import { TimerBar } from '../components/game/TimerBar';
@@ -69,6 +72,8 @@ export default function DailyScreen() {
   const insets = useSafeAreaInsets();
   const { inventory } = useShop();
   const feedback = useFeedback();
+  const { addXP } = useLevel();
+  const { checkAfterDaily, pendingToasts, dismissToast } = useAchievementContext();
   const animations = useGameAnimations();
 
   const [status, setStatus] = useState<DailyStatus>('loading');
@@ -214,6 +219,14 @@ export default function DailyScreen() {
     });
 
     await addCoins(coins);
+
+    // Award XP
+    let xp = XP_CONFIG.dailyChallenge + (finalCorrectTaps * XP_CONFIG.correctTap);
+    if (completed) xp += XP_CONFIG.dailyPerfect;
+    addXP(xp);
+
+    // Check daily achievements
+    checkAfterDaily({ correctTaps: finalCorrectTaps, completed });
 
     setStatus(completed ? 'complete' : 'failed');
   }, [todayDate]);
@@ -416,6 +429,10 @@ export default function DailyScreen() {
         <DailyHistoryView onClose={() => setShowHistory(false)} />
       )}
       {renderContent()}
+      <AchievementToast
+        achievement={pendingToasts.length > 0 ? pendingToasts[0] : null}
+        onDismiss={dismissToast}
+      />
     </View>
   );
 }

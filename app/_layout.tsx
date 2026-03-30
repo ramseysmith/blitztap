@@ -11,9 +11,12 @@ import { SettingsProvider } from '../contexts/SettingsContext';
 import { PurchaseProvider } from '../contexts/PurchaseContext';
 import { AccessibilityProvider } from '../contexts/AccessibilityContext';
 import { ShopProvider } from '../contexts/ShopContext';
+import { LevelProvider } from '../contexts/LevelContext';
+import { AchievementProvider } from '../contexts/AchievementContext';
 import { Colors } from '../utils/colors';
 import AnimatedSplash from '../components/AnimatedSplash';
 import { REVENUECAT_CONFIG, TEST_DEVICE_IDS } from '../utils/adConfig';
+import { getReferralCode } from '../utils/referral';
 
 // Keep the native splash screen visible while we load resources
 SplashScreen.preventAutoHideAsync();
@@ -43,6 +46,9 @@ export default function RootLayout() {
             await requestTrackingPermissionsAsync();
           }
         }
+
+        // Step B2: Generate referral code on first launch (persists immediately)
+        getReferralCode().catch(() => {});
 
         // Step C: Initialize AdMob AFTER ATT resolves
         // Register test devices so they always receive test ads in any environment
@@ -91,16 +97,20 @@ export default function RootLayout() {
       <PurchaseProvider>
         <GameProvider>
           <ShopProvider>
-            <View style={styles.container}>
-              <StatusBar style="light" />
-              <Stack
-                screenOptions={{
-                  headerShown: false,
-                  contentStyle: { backgroundColor: Colors.background },
-                  animation: 'fade',
-                }}
-              />
-            </View>
+            <LevelProvider>
+              <AchievementProvider>
+                <View style={styles.container}>
+                  <StatusBar style="light" />
+                  <Stack
+                    screenOptions={{
+                      headerShown: false,
+                      contentStyle: { backgroundColor: Colors.background },
+                      animation: 'fade',
+                    }}
+                  />
+                </View>
+              </AchievementProvider>
+            </LevelProvider>
           </ShopProvider>
         </GameProvider>
       </PurchaseProvider>
