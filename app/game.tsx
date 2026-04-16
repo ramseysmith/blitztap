@@ -9,6 +9,7 @@ import { useLevel, XP_CONFIG } from '../contexts/LevelContext';
 import { useAchievementContext } from '../contexts/AchievementContext';
 import { useGameEngine } from '../hooks/useGameEngine';
 import { useFeedback } from '../hooks/useFeedback';
+import { useReviewPrompt } from '../hooks/useReviewPrompt';
 import { useGameAnimations } from '../hooks/useGameAnimations';
 import { useAds } from '../hooks/useAds';
 import { useAppState } from '../hooks/useAppState';
@@ -30,7 +31,7 @@ import LevelUpOverlay from '../components/ui/LevelUpOverlay';
 import ShareCardRenderer, { ShareCardRendererHandle } from '../components/sharecard/ShareCardRenderer';
 import { Colors, PieceColor } from '../utils/colors';
 import { calculateMultiplier, calculateTier } from '../utils/scoring';
-import { getLastReviewGame, setLastReviewGame, getModeHighScores } from '../utils/storage';
+import { getModeHighScores } from '../utils/storage';
 import { recordGameResult } from '../utils/stats';
 import type { ShareCardData } from '../components/sharecard/ShareCard';
 
@@ -38,14 +39,6 @@ import type { ShareCardData } from '../components/sharecard/ShareCard';
 let FpsCounter: React.ComponentType | null = null;
 if (__DEV__) {
   FpsCounter = require('../components/game/FpsCounter').FpsCounter;
-}
-
-// Optional expo-store-review
-let StoreReview: { isAvailableAsync: () => Promise<boolean>; requestReview: () => Promise<void> } | null = null;
-try {
-  StoreReview = require('expo-store-review');
-} catch {
-  // Not installed yet
 }
 
 const MODE_LABELS: Record<GameMode, string> = {
@@ -69,6 +62,7 @@ export default function GameScreen() {
   const { checkAfterGame, checkAfterAction, pendingToasts, dismissToast } = useAchievementContext();
   const feedback = useFeedback();
   const animations = useGameAnimations();
+  const { maybeRequestReview } = useReviewPrompt();
   const { showInterstitial, showRewarded, shouldShowInterstitial, isRewardedReady } = useAds();
   const shareCardRef = useRef<ShareCardRendererHandle>(null);
   const previousHighScoreRef = useRef(0);
@@ -264,7 +258,7 @@ export default function GameScreen() {
         correctTaps,
       });
 
-      maybeRequestReview(state.score, state.roundsPlayedThisSession);
+      maybeRequestReview({ isNewPersonalBest: state.isNewHighScore });
     }
   }, [state.status]);
 
@@ -605,25 +599,6 @@ export default function GameScreen() {
       {__DEV__ && FpsCounter && <FpsCounter />}
     </View>
   );
-}
-
-async function maybeRequestReview(score: number, gamesPlayed: number) {
-  if (!StoreReview) return;
-  if (gamesPlayed < 10) return;
-  if (score < 20) return;
-
-  try {
-    const lastGame = await getLastReviewGame();
-    if (gamesPlayed - lastGame < 30) return;
-
-    const isAvailable = await StoreReview.isAvailableAsync();
-    if (!isAvailable) return;
-
-    await StoreReview.requestReview();
-    await setLastReviewGame(gamesPlayed);
-  } catch {
-    // silent
-  }
 }
 
 const styles = StyleSheet.create({

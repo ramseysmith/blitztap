@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Switch, Alert, ActivityIndicator } from 'react-native';
+import { useReviewPrompt } from '../hooks/useReviewPrompt';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -14,6 +15,7 @@ export default function SettingsScreen() {
   const { settings, setSoundEnabled, setHapticsEnabled } = useSettings();
   const { isProUser, restorePurchases } = usePurchase();
   const [isRestoring, setIsRestoring] = useState(false);
+  const { maybeRequestReview, resetForDevTesting } = useReviewPrompt();
 
   const handleSoundToggle = async (value: boolean) => {
     await setSoundEnabled(value);
@@ -140,6 +142,28 @@ export default function SettingsScreen() {
         </Pressable>
       </View>
 
+      {/* Dev-only: Review Prompt Testing */}
+      {__DEV__ && (
+        <View style={styles.devSection}>
+          <Text style={styles.devSectionTitle}>DEV: Review Prompt</Text>
+          <Pressable
+            style={({ pressed }) => [styles.devButton, pressed && styles.devButtonPressed]}
+            onPress={async () => {
+              await resetForDevTesting?.();
+              Alert.alert('Dev', 'Review prompt state cleared. Next new personal best will trigger if platform allows.');
+            }}
+          >
+            <Text style={styles.devButtonText}>Reset Review State</Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [styles.devButton, pressed && styles.devButtonPressed]}
+            onPress={() => maybeRequestReview({ isNewPersonalBest: true })}
+          >
+            <Text style={styles.devButtonText}>Force Trigger Prompt</Text>
+          </Pressable>
+        </View>
+      )}
+
       {/* Footer */}
       <View style={[styles.footer, { paddingBottom: insets.bottom + 20 }]}>
         <Text style={styles.versionText}>BlitzTap v{Constants.expoConfig?.version ?? '1.0.0'}</Text>
@@ -258,5 +282,36 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.textSecondary,
     opacity: 0.5,
+  },
+  devSection: {
+    marginTop: 40,
+    paddingHorizontal: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#FF336633',
+    paddingTop: 16,
+  },
+  devSectionTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FF3366',
+    letterSpacing: 2,
+    marginBottom: 12,
+  },
+  devButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FF3366',
+    marginBottom: 8,
+    alignItems: 'center',
+  },
+  devButtonPressed: {
+    opacity: 0.6,
+  },
+  devButtonText: {
+    fontSize: 13,
+    color: '#FF3366',
+    fontWeight: '600',
   },
 });

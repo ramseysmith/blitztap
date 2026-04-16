@@ -262,6 +262,49 @@ Keep it minimal and satisfying:
 
 Users should be able to toggle sound independently of haptics in settings.
 
+## Review Prompt
+
+BlitzTap solicits App Store / Play Store reviews at the moment the player is most likely to feel positive about the app: immediately after setting a new personal best.
+
+### Implementation
+
+Hook: `hooks/useReviewPrompt.ts`  
+Storage key: `blitztap.reviewPrompt.v1` (JSON object in AsyncStorage)
+
+```ts
+interface ReviewPromptState {
+  totalGamesCompleted: number;  // cumulative across all sessions
+  promptHistory: number[];      // Unix timestamps (ms) of past prompts
+}
+```
+
+### Trigger Rules (ALL must be satisfied)
+
+| # | Condition | Rationale |
+|---|-----------|-----------|
+| 1 | `isNewPersonalBest === true` (strictly greater, not tied) | High-intent moment |
+| 2 | `totalGamesCompleted >= 8` | User has enough context to review fairly |
+| 3 | ≥ 30 days since last prompt (or never prompted) | Avoid nagging |
+| 4 | < 3 prompts shown in the last 365 days | Apple Review Guidelines compliance |
+| 5 | `StoreReview.isAvailableAsync()` returns `true` | Platform capability |
+| 6 | `StoreReview.hasAction()` returns `true` | Ensures OS dialog can appear |
+
+### Timing
+
+`requestReview()` is called after a **1.5 s delay** so the "NEW HIGH SCORE!" badge animation fully completes before the system dialog appears. The dialog feels like a reward, not an interruption.
+
+### Frequency Limits
+
+- Maximum **3 prompts per 365-day window** (Apple policy for `SKStoreReviewController`)
+- Minimum **30-day gap** between any two prompts
+- Old entries outside the 365-day window are automatically pruned from `promptHistory` on each save
+
+### Developer Testing
+
+When `__DEV__` is `true`, a hidden section appears at the bottom of the Settings screen with two buttons:
+- **Reset Review State** — clears `blitztap.reviewPrompt.v1` from AsyncStorage
+- **Force Trigger Prompt** — calls `maybeRequestReview({ isNewPersonalBest: true })` directly (all gates still apply; use Reset first to clear counters)
+
 ## App Store Preparation Checklist
 
 | Item | Details |
