@@ -29,6 +29,7 @@ import { useAchievementContext } from '../contexts/AchievementContext';
 import { useFeedback } from '../hooks/useFeedback';
 import { CoinDisplay } from '../components/ui/CoinDisplay';
 import XPBar from '../components/ui/XPBar';
+import DailyRewardToast from '../components/ui/DailyRewardToast';
 import { Colors } from '../utils/colors';
 import { AD_UNIT_IDS } from '../utils/adConfig';
 import { SPRING_CONFIG } from '../hooks/useGameAnimations';
@@ -36,6 +37,9 @@ import OnboardingScreen from '../components/OnboardingScreen';
 import { getOnboardingComplete, setOnboardingComplete, getModeHighScores } from '../utils/storage';
 import { getTodayResult, getTodayDateString } from '../utils/dailyChallenge';
 import { getDailyChallengeStreak } from '../utils/achievementStorage';
+import { claimDailyReward, DailyRewardResult } from '../utils/dailyReward';
+import { scheduleInactivityReminder } from '../utils/notifications';
+import { useSettings } from '../contexts/SettingsContext';
 import type { GameMode } from '../contexts/GameContext';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -148,6 +152,7 @@ export default function HomeScreen() {
   const { state } = useGame();
   const { isProUser, removeAdsPrice, purchaseRemoveAds } = usePurchase();
   const { coins, refreshCoins } = useShop();
+  const { settings } = useSettings();
   const { playerLevel, xpNeeded } = useLevel();
   const { unclaimedCount, completedCount } = useAchievementContext();
   const feedback = useFeedback();
@@ -158,6 +163,7 @@ export default function HomeScreen() {
   const [dailyStreak, setDailyStreak] = useState(0);
   const [todayDate] = useState(getTodayDateString());
   const [hintIndex, setHintIndex] = useState(0);
+  const [dailyReward, setDailyReward] = useState<DailyRewardResult | null>(null);
 
   useEffect(() => {
     getOnboardingComplete().then((done) => {
@@ -177,7 +183,18 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       getModeHighScores().then(setModeHighScores);
-      refreshCoins();
+
+      // Grant the daily return bonus (once per day), then refresh the coin
+      // balance so the header reflects both the bonus and any other earnings.
+      claimDailyReward().then((reward) => {
+        if (reward) setDailyReward(reward);
+        refreshCoins();
+      });
+
+      // Push the inactivity reminder forward so it only fires after a full day away.
+      if (settings.notificationsEnabled) {
+        scheduleInactivityReminder().catch(() => {});
+      }
 
       getTodayResult().then((result) => {
         if (result) {
@@ -188,7 +205,7 @@ export default function HomeScreen() {
       });
 
       getDailyChallengeStreak().then(setDailyStreak);
-    }, []),
+    }, [settings.notificationsEnabled]),
   );
 
   const handleOnboardingComplete = useCallback(async () => {
@@ -300,7 +317,7 @@ export default function HomeScreen() {
         </View>
         <Animated.Text style={[styles.headerTitle, titleGlowStyle]}>BLITZTAP</Animated.Text>
         <View style={styles.headerRight}>
-          <CoinDisplay coins={state.totalCoins} />
+          <CoinDisplay coins={coins} />
         </View>
       </View>
 
@@ -435,7 +452,7 @@ export default function HomeScreen() {
 
       {/* Banner ad */}
       {!isProUser && (
-        <View style={[styles.bannerContainer, { paddingBottom: insets.bottom }]}>
+        <View style={styles.bannerContainer}>
           <BannerAd
             unitId={AD_UNIT_IDS.BANNER}
             size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
@@ -446,6 +463,8 @@ export default function HomeScreen() {
           />
         </View>
       )}
+
+      <DailyRewardToast reward={dailyReward} onDismiss={() => setDailyReward(null)} />
 
       {showOnboarding && <OnboardingScreen onComplete={handleOnboardingComplete} />}
     </View>

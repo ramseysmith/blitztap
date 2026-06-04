@@ -2,12 +2,16 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import { getSettings, updateSettings, Settings } from '../utils/storage';
+import { enableReminders, cancelReminders } from '../utils/notifications';
 
 interface SettingsContextType {
   settings: Settings;
   isLoaded: boolean;
   setSoundEnabled: (enabled: boolean) => Promise<void>;
   setHapticsEnabled: (enabled: boolean) => Promise<void>;
+  // Returns the value actually applied — stays false if the user declined the
+  // OS notification permission when enabling.
+  setNotificationsEnabled: (enabled: boolean) => Promise<boolean>;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -20,6 +24,7 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
   const [settings, setSettings] = useState<Settings>({
     soundEnabled: true,
     hapticsEnabled: true,
+    notificationsEnabled: false,
   });
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -43,6 +48,16 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
     setSettings(updated);
   }, []);
 
+  const setNotificationsEnabled = useCallback(async (enabled: boolean): Promise<boolean> => {
+    // Enabling requires OS permission; if denied, leave the setting off.
+    const applied = enabled ? await enableReminders() : false;
+    if (!enabled) await cancelReminders();
+
+    const updated = await updateSettings({ notificationsEnabled: applied });
+    setSettings(updated);
+    return applied;
+  }, []);
+
   return (
     <SettingsContext.Provider
       value={{
@@ -50,6 +65,7 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
         isLoaded,
         setSoundEnabled,
         setHapticsEnabled,
+        setNotificationsEnabled,
       }}
     >
       {children}

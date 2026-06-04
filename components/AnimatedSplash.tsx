@@ -13,6 +13,7 @@ import Animated, {
   interpolateColor,
   runOnJS,
 } from 'react-native-reanimated';
+import Svg, { Path, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { useAccessibility } from '../contexts/AccessibilityContext';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -123,8 +124,14 @@ const Triangle = ({ size, color }: { size: number; color: string }) => (
 
 // ============================================================
 // LIGHTNING BOLT COMPONENT
-// Two skewed parallelograms — upper-right arm + lower-left arm
+// A single classic ⚡ silhouette drawn as an SVG path, matching the
+// app logo: pointed bottom tip, zigzag notch, white with a subtle
+// cyan gradient on the lower half.
 // ============================================================
+// Classic flash/bolt outline in a 100x100 viewBox (centered, pointed bottom).
+// Derived from the universal "flash" glyph so it reads unmistakably as ⚡.
+const BOLT_PATH = 'M29 8 L29 54 L42 54 L42 92 L71 42 L54 42 L71 8 Z';
+
 const LightningBolt = ({ size, progress }: { size: number; progress: Animated.SharedValue<number> }) => {
   const animStyle = useAnimatedStyle(() => ({
     opacity: progress.value,
@@ -135,18 +142,6 @@ const LightningBolt = ({ size, progress }: { size: number; progress: Animated.Sh
     opacity: interpolate(progress.value, [0, 0.8, 1], [0, 0.8, 0.5]),
     transform: [{ scale: interpolate(progress.value, [0, 0.5, 1], [0.3, 1.4, 1.2]) }],
   }));
-
-  // The bolt body is a container within which two arms are absolutely placed.
-  // Both arms use skewX to lean left, mimicking the classic ⚡ diagonal.
-  // Upper arm sits top-right; lower arm sits bottom-left.
-  // The resulting negative space in the middle creates the characteristic zigzag notch.
-  const boxW = size * 0.68;
-  const boxH = size * 0.9;
-  const upperW = size * 0.46;
-  const upperH = boxH * 0.56;
-  const lowerW = size * 0.38;
-  const lowerH = boxH * 0.56;
-  const radius = size * 0.05;
 
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
@@ -161,38 +156,23 @@ const LightningBolt = ({ size, progress }: { size: number; progress: Animated.Sh
         }, glowStyle]}
       />
 
-      {/* Bolt arms */}
-      <Animated.View style={[{ width: boxW, height: boxH }, animStyle]}>
-        {/* Upper arm: top-right, leans left */}
-        <View
-          style={{
-            position: 'absolute',
-            top: 0,
-            right: 0,
-            width: upperW,
-            height: upperH,
-            backgroundColor: COLORS.white,
-            borderTopRightRadius: radius,
-            borderTopLeftRadius: radius * 0.4,
-            borderBottomRightRadius: radius * 0.4,
-            transform: [{ skewX: '-18deg' }],
-          }}
-        />
-        {/* Lower arm: bottom-left, leans left */}
-        <View
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            width: lowerW,
-            height: lowerH,
-            backgroundColor: COLORS.white,
-            borderBottomLeftRadius: radius,
-            borderBottomRightRadius: radius * 0.4,
-            borderTopLeftRadius: radius * 0.4,
-            transform: [{ skewX: '-18deg' }],
-          }}
-        />
+      {/* Bolt silhouette */}
+      <Animated.View style={[{ width: size, height: size }, animStyle]}>
+        <Svg width={size} height={size} viewBox="0 0 100 100">
+          <Defs>
+            <LinearGradient id="boltFill" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={COLORS.white} stopOpacity="1" />
+              <Stop offset="1" stopColor="#C8EEFF" stopOpacity="1" />
+            </LinearGradient>
+          </Defs>
+          <Path
+            d={BOLT_PATH}
+            fill="url(#boltFill)"
+            stroke="rgba(0, 212, 255, 0.45)"
+            strokeWidth={2}
+            strokeLinejoin="round"
+          />
+        </Svg>
       </Animated.View>
     </View>
   );

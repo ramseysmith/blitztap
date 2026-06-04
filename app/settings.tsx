@@ -12,7 +12,7 @@ import { Colors } from '../utils/colors';
 export default function SettingsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { settings, setSoundEnabled, setHapticsEnabled } = useSettings();
+  const { settings, setSoundEnabled, setHapticsEnabled, setNotificationsEnabled } = useSettings();
   const { isProUser, restorePurchases } = usePurchase();
   const [isRestoring, setIsRestoring] = useState(false);
   const { maybeRequestReview, resetForDevTesting } = useReviewPrompt();
@@ -30,6 +30,17 @@ export default function SettingsScreen() {
       } catch (error) {
         // Haptics not available
       }
+    }
+  };
+
+  const handleNotificationsToggle = async (value: boolean) => {
+    const applied = await setNotificationsEnabled(value);
+    // If the user tried to enable but the OS permission was denied, let them know.
+    if (value && !applied) {
+      Alert.alert(
+        'Notifications Disabled',
+        'Enable notifications for BlitzTap in your device Settings to receive daily reminders.'
+      );
     }
   };
 
@@ -101,6 +112,26 @@ export default function SettingsScreen() {
             accessibilityLabel="Haptic feedback"
             accessibilityRole="switch"
             accessibilityState={{ checked: settings.hapticsEnabled }}
+          />
+        </View>
+
+        {/* Daily Reminders Toggle */}
+        <View style={styles.settingRow}>
+          <View style={styles.settingInfo}>
+            <Text style={styles.settingLabel}>Daily Reminders</Text>
+            <Text style={styles.settingDescription}>
+              Get a nudge to claim your streak bonus when you've been away
+            </Text>
+          </View>
+          <Switch
+            value={settings.notificationsEnabled}
+            onValueChange={handleNotificationsToggle}
+            trackColor={{ false: Colors.backgroundLight, true: Colors.accent }}
+            thumbColor="#FFFFFF"
+            ios_backgroundColor={Colors.backgroundLight}
+            accessibilityLabel="Daily reminders"
+            accessibilityRole="switch"
+            accessibilityState={{ checked: settings.notificationsEnabled }}
           />
         </View>
 

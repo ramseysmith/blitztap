@@ -3,13 +3,13 @@
     "name": "BlitzTap",
     "slug": "blitztap",
     "scheme": "blitztap",
-    "version": "1.4.0",
+    "version": "1.5.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/splash-solid.png",
       "resizeMode": "cover",
       "backgroundColor": "#1A1A2E"
     },
@@ -107,7 +107,8 @@
       ],
       ["expo-tracking-transparency", {
         "userTrackingPermission": "This identifier will be used to deliver personalized ads to you."
-      }]
+      }],
+      "expo-notifications"
     ],
     "extra": {
       "router": {},

@@ -10,16 +10,21 @@ const KEYS = {
   HAS_PLAYED_BEFORE: 'blitztap_has_played_before',
   LAST_REVIEW_GAME: 'blitztap_last_review_game',
   MODE_HIGH_SCORES: 'blitztap_mode_high_scores',
+  NOTIFICATIONS_ENABLED: 'blitztap_notifications_enabled',
+  LAST_CLAIM_DATE: 'blitztap_last_claim_date',
+  RETURN_STREAK: 'blitztap_return_streak',
 } as const;
 
 export interface Settings {
   soundEnabled: boolean;
   hapticsEnabled: boolean;
+  notificationsEnabled: boolean;
 }
 
 const DEFAULT_SETTINGS: Settings = {
   soundEnabled: true,
   hapticsEnabled: true,
+  notificationsEnabled: false,
 };
 
 // High Score
@@ -154,6 +159,35 @@ export async function spendCoins(amount: number): Promise<number> {
   } catch (error) {
     console.error('Error spending coins:', error);
     return 0;
+  }
+}
+
+// Daily return reward tracking
+export async function getLastClaimDate(): Promise<string | null> {
+  try {
+    return await AsyncStorage.getItem(KEYS.LAST_CLAIM_DATE);
+  } catch {
+    return null;
+  }
+}
+
+export async function getReturnStreak(): Promise<number> {
+  try {
+    const value = await AsyncStorage.getItem(KEYS.RETURN_STREAK);
+    return value ? parseInt(value, 10) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export async function setReturnReward(dateString: string, streak: number): Promise<void> {
+  try {
+    await AsyncStorage.multiSet([
+      [KEYS.LAST_CLAIM_DATE, dateString],
+      [KEYS.RETURN_STREAK, streak.toString()],
+    ]);
+  } catch (error) {
+    console.error('Error saving return reward:', error);
   }
 }
 
