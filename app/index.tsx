@@ -152,7 +152,7 @@ export default function HomeScreen() {
   const { state } = useGame();
   const { isProUser, removeAdsPrice, purchaseRemoveAds } = usePurchase();
   const { coins, refreshCoins } = useShop();
-  const { settings } = useSettings();
+  const { settings, setNotificationsEnabled } = useSettings();
   const { playerLevel, xpNeeded } = useLevel();
   const { unclaimedCount, completedCount } = useAchievementContext();
   const feedback = useFeedback();
@@ -211,7 +211,14 @@ export default function HomeScreen() {
   const handleOnboardingComplete = useCallback(async () => {
     await setOnboardingComplete();
     setShowOnboarding(false);
-  }, []);
+
+    // Ask for the streak reminder here, straight after onboarding, which is the
+    // only moment intent is high. The reminder defaults to off and lived behind
+    // a Settings switch, so the one thing that pulls a lapsed player back was
+    // never actually reaching anyone. Denying is fine: setNotificationsEnabled
+    // leaves the setting off and Settings can turn it on later.
+    setNotificationsEnabled(true).catch(() => {});
+  }, [setNotificationsEnabled]);
 
   // Animation values
   const titleGlow = useSharedValue(0.5);
