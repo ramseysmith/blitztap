@@ -11,6 +11,7 @@ import Animated, {
   Easing,
   interpolate,
   runOnJS,
+  type SharedValue,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../utils/colors';
@@ -305,7 +306,9 @@ const TiersDemo = ({ visible }: { visible: boolean }) => {
     };
   }, [visible]);
 
-  const makeStyle = (val: Animated.SharedValue<number>) =>
+  // Named as a hook because it calls one. The four calls below are
+  // unconditional and always run in the same order, so hook order stays stable.
+  const useTierStyle = (val: SharedValue<number>) =>
     useAnimatedStyle(() => ({
       opacity: val.value,
       transform: [{ scale: val.value }, { translateY: interpolate(val.value, [0, 1], [20, 0]) }],
@@ -318,12 +321,12 @@ const TiersDemo = ({ visible }: { visible: boolean }) => {
       score: '0–9',
       color: Colors.success,
       shapes: [
-        <ShapeCircle size={18} color={Colors.pieces.red} />,
-        <ShapeCircle size={18} color={Colors.pieces.blue} />,
-        <ShapeCircle size={18} color={Colors.pieces.green} />,
-        <ShapeCircle size={18} color={Colors.pieces.yellow} />,
+        <ShapeCircle key="s0" size={18} color={Colors.pieces.red} />,
+        <ShapeCircle key="s1" size={18} color={Colors.pieces.blue} />,
+        <ShapeCircle key="s2" size={18} color={Colors.pieces.green} />,
+        <ShapeCircle key="s3" size={18} color={Colors.pieces.yellow} />,
       ],
-      style: makeStyle(tier1Scale),
+      style: useTierStyle(tier1Scale),
     },
     {
       title: 'TIER 2',
@@ -331,12 +334,12 @@ const TiersDemo = ({ visible }: { visible: boolean }) => {
       score: '10–24',
       color: Colors.accent,
       shapes: [
-        <ShapeCircle size={16} color={Colors.pieces.blue} />,
-        <ShapeSquare size={16} color={Colors.pieces.red} />,
-        <ShapeTriangle size={16} color={Colors.pieces.green} />,
-        <ShapeDiamond size={20} color={Colors.pieces.yellow} />,
+        <ShapeCircle key="s0" size={16} color={Colors.pieces.blue} />,
+        <ShapeSquare key="s1" size={16} color={Colors.pieces.red} />,
+        <ShapeTriangle key="s2" size={16} color={Colors.pieces.green} />,
+        <ShapeDiamond key="s3" size={20} color={Colors.pieces.yellow} />,
       ],
-      style: makeStyle(tier2Scale),
+      style: useTierStyle(tier2Scale),
     },
     {
       title: 'TIER 3',
@@ -344,14 +347,14 @@ const TiersDemo = ({ visible }: { visible: boolean }) => {
       score: '25–49',
       color: Colors.warning,
       shapes: [
-        <ShapeCircle size={14} color={Colors.pieces.purple} />,
-        <ShapeSquare size={14} color={Colors.pieces.blue} />,
-        <ShapeTriangle size={14} color={Colors.pieces.red} />,
-        <ShapeDiamond size={18} color={Colors.pieces.purple} />,
-        <ShapeCircle size={14} color={Colors.pieces.green} />,
-        <ShapeSquare size={14} color={Colors.pieces.yellow} />,
+        <ShapeCircle key="s0" size={14} color={Colors.pieces.purple} />,
+        <ShapeSquare key="s1" size={14} color={Colors.pieces.blue} />,
+        <ShapeTriangle key="s2" size={14} color={Colors.pieces.red} />,
+        <ShapeDiamond key="s3" size={18} color={Colors.pieces.purple} />,
+        <ShapeCircle key="s4" size={14} color={Colors.pieces.green} />,
+        <ShapeSquare key="s5" size={14} color={Colors.pieces.yellow} />,
       ],
-      style: makeStyle(tier3Scale),
+      style: useTierStyle(tier3Scale),
     },
     {
       title: 'TIER 4',
@@ -359,16 +362,16 @@ const TiersDemo = ({ visible }: { visible: boolean }) => {
       score: '50+',
       color: Colors.error,
       shapes: [
-        <ShapeCircle size={12} color={Colors.pieces.orange} />,
-        <ShapeSquare size={12} color={Colors.pieces.red} />,
-        <ShapeTriangle size={12} color={Colors.pieces.blue} />,
-        <ShapeDiamond size={16} color={Colors.pieces.yellow} />,
-        <ShapeCircle size={12} color={Colors.pieces.purple} />,
-        <ShapeSquare size={12} color={Colors.pieces.orange} />,
-        <ShapeTriangle size={12} color={Colors.pieces.green} />,
-        <ShapeCircle size={12} color={Colors.pieces.red} />,
+        <ShapeCircle key="s0" size={12} color={Colors.pieces.orange} />,
+        <ShapeSquare key="s1" size={12} color={Colors.pieces.red} />,
+        <ShapeTriangle key="s2" size={12} color={Colors.pieces.blue} />,
+        <ShapeDiamond key="s3" size={16} color={Colors.pieces.yellow} />,
+        <ShapeCircle key="s4" size={12} color={Colors.pieces.purple} />,
+        <ShapeSquare key="s5" size={12} color={Colors.pieces.orange} />,
+        <ShapeTriangle key="s6" size={12} color={Colors.pieces.green} />,
+        <ShapeCircle key="s7" size={12} color={Colors.pieces.red} />,
       ],
-      style: makeStyle(tier4Scale),
+      style: useTierStyle(tier4Scale),
     },
   ];
 
