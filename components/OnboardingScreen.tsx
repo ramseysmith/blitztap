@@ -15,6 +15,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../utils/colors';
+import { useSettings } from '../contexts/SettingsContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -571,6 +572,75 @@ const ShopDemo = ({ visible }: { visible: boolean }) => {
 
 // ─── Slide data ───────────────────────────────────────────────────────────────
 
+// ─── Slide 7: Keep Your Streak ────────────────────────────────────────────────
+// Shows the actual notification the player is being asked to allow, so the OS
+// prompt that follows is not the first time they hear about it.
+
+const StreakReminderDemo = ({ visible }: { visible: boolean }) => {
+  const cardOpacity = useSharedValue(0);
+  const cardY = useSharedValue(-24);
+  const coinScale = useSharedValue(0);
+  const flameScale = useSharedValue(1);
+
+  useEffect(() => {
+    if (!visible) return;
+
+    cardOpacity.value = withDelay(200, withTiming(1, { duration: 450 }));
+    cardY.value = withDelay(200, withSpring(0, { damping: 12, stiffness: 140 }));
+    coinScale.value = withDelay(600, withSpring(1, { damping: 7, stiffness: 220 }));
+    flameScale.value = withDelay(900, withRepeat(
+      withSequence(
+        withSpring(1.18, { damping: 6, stiffness: 180 }),
+        withSpring(1, { damping: 8, stiffness: 150 })
+      ),
+      -1,
+      true
+    ));
+
+    return () => {
+      cardOpacity.value = 0;
+      cardY.value = -24;
+      coinScale.value = 0;
+      flameScale.value = 1;
+    };
+  }, [visible]);
+
+  const cardStyle = useAnimatedStyle(() => ({
+    opacity: cardOpacity.value,
+    transform: [{ translateY: cardY.value }],
+  }));
+
+  const coinStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: coinScale.value }],
+  }));
+
+  const flameStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: flameScale.value }],
+  }));
+
+  return (
+    <View style={demoStyles.container}>
+      {/* A mock of the real notification, worded exactly as it ships */}
+      <Animated.View style={[reminderStyles.notification, cardStyle]}>
+        <Animated.View style={[reminderStyles.notificationIcon, coinStyle]}>
+          <Text style={reminderStyles.notificationIconText}>🪙</Text>
+        </Animated.View>
+        <View style={reminderStyles.notificationBody}>
+          <Text style={reminderStyles.notificationTitle}>Your coins are waiting!</Text>
+          <Text style={reminderStyles.notificationText} numberOfLines={2}>
+            Tap to claim your daily streak bonus and beat your high score.
+          </Text>
+        </View>
+      </Animated.View>
+
+      <View style={reminderStyles.streakRow}>
+        <Animated.Text style={[reminderStyles.flame, flameStyle]}>🔥</Animated.Text>
+        <Text style={reminderStyles.streakText}>Only after a full day away. Never spam.</Text>
+      </View>
+    </View>
+  );
+};
+
 const SLIDES = [
   {
     title: 'SPOT THE\nMATCH',
@@ -608,6 +678,12 @@ const SLIDES = [
     accentColor: '#FFD700',
     Demo: ShopDemo,
   },
+  {
+    title: 'KEEP YOUR\nSTREAK',
+    subtitle: "We'll remind you once your daily bonus is ready. Skip if you'd rather not.",
+    accentColor: '#FF6B35',
+    Demo: StreakReminderDemo,
+  },
 ];
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -618,6 +694,7 @@ interface OnboardingScreenProps {
 
 export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   const insets = useSafeAreaInsets();
+  const { setNotificationsEnabled } = useSettings();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
@@ -668,6 +745,21 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
     }, 200);
   }, [isTransitioning, animateIn]);
 
+  const finish = useCallback(() => {
+    containerOpacity.value = withTiming(0, { duration: 300 }, () => runOnJS(onComplete)());
+  }, [onComplete, containerOpacity]);
+
+  // The last slide explains the reminder, so its button is the ask. Doing it
+  // here rather than on completion means SKIP genuinely means no prompt.
+  const handleEnableReminders = useCallback(async () => {
+    try {
+      await setNotificationsEnabled(true);
+    } catch {
+      // A denied or failed prompt must never trap anyone in onboarding.
+    }
+    finish();
+  }, [setNotificationsEnabled, finish]);
+
   const handleNext = useCallback(() => {
     btnScale.value = withSequence(
       withSpring(0.93, { damping: 12, stiffness: 300 }),
@@ -676,9 +768,9 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
     if (currentSlide < SLIDES.length - 1) {
       goToSlide(currentSlide + 1);
     } else {
-      containerOpacity.value = withTiming(0, { duration: 300 }, () => runOnJS(onComplete)());
+      handleEnableReminders();
     }
-  }, [currentSlide, goToSlide, onComplete]);
+  }, [currentSlide, goToSlide, handleEnableReminders, btnScale]);
 
   const handleSkip = useCallback(() => {
     containerOpacity.value = withTiming(0, { duration: 250 }, () => runOnJS(onComplete)());
@@ -755,7 +847,7 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
         <Pressable onPress={handleNext}>
           <Animated.View style={[styles.nextButton, { backgroundColor: slide.accentColor }, btnStyle]}>
             <Text style={styles.nextButtonText}>
-              {isLast ? "LET'S PLAY! ⚡" : 'NEXT →'}
+              {isLast ? 'ENABLE REMINDERS 🔔' : 'NEXT →'}
             </Text>
           </Animated.View>
         </Pressable>
@@ -765,6 +857,59 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
 }
 
 // ─── Demo styles ──────────────────────────────────────────────────────────────
+
+const reminderStyles = StyleSheet.create({
+  notification: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    width: '92%',
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)',
+    borderRadius: 16,
+    padding: 14,
+  },
+  notificationIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,215,0,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notificationIconText: {
+    fontSize: 22,
+  },
+  notificationBody: {
+    flex: 1,
+  },
+  notificationTitle: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  notificationText: {
+    color: 'rgba(255,255,255,0.72)',
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  streakRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  flame: {
+    fontSize: 18,
+  },
+  streakText: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+});
 
 const demoStyles = StyleSheet.create({
   container: {
