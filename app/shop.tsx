@@ -130,7 +130,8 @@ function ItemCard({
         style={[
           styles.itemCard,
           isEquipped && { borderColor: rarityColor, borderWidth: 2 },
-        ].concat([cardStyle])}
+          cardStyle,
+        ]}
       >
         <ItemPreview item={item} />
 

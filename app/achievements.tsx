@@ -10,8 +10,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { useFocusEffect } from 'expo-router';
+import { useRouter , useFocusEffect } from 'expo-router';
 import Animated, {
   FadeIn,
   useSharedValue,

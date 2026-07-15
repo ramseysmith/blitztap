@@ -127,7 +127,7 @@ export default function ShareCard({ data }: { data: ShareCardData }) {
           )}
 
           <Text style={styles.challengeText}>
-            Today's Daily Challenge: {data.dailyCorrect}/{data.dailyTotal}. Your turn.
+            Today&apos;s Daily Challenge: {data.dailyCorrect}/{data.dailyTotal}. Your turn.
           </Text>
 
           {data.playerLevel && (

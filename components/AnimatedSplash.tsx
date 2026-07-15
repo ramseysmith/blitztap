@@ -12,6 +12,7 @@ import Animated, {
   interpolate,
   interpolateColor,
   runOnJS,
+  type SharedValue,
 } from 'react-native-reanimated';
 import Svg, { Path, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { useAccessibility } from '../contexts/AccessibilityContext';
@@ -132,7 +133,7 @@ const Triangle = ({ size, color }: { size: number; color: string }) => (
 // Derived from the universal "flash" glyph so it reads unmistakably as ⚡.
 const BOLT_PATH = 'M29 8 L29 54 L42 54 L42 92 L71 42 L54 42 L71 8 Z';
 
-const LightningBolt = ({ size, progress }: { size: number; progress: Animated.SharedValue<number> }) => {
+const LightningBolt = ({ size, progress }: { size: number; progress: SharedValue<number> }) => {
   const animStyle = useAnimatedStyle(() => ({
     opacity: progress.value,
     transform: [{ scale: interpolate(progress.value, [0, 0.5, 1], [0.3, 1.15, 1]) }],
@@ -194,7 +195,7 @@ const Particle = ({
   distance: number;
   size: number;
   color: string;
-  trigger: Animated.SharedValue<number>;
+  trigger: SharedValue<number>;
 }) => {
   const animStyle = useAnimatedStyle(() => {
     const progress = trigger.value;
@@ -226,7 +227,7 @@ const Particle = ({
   );
 };
 
-const ParticleBurst = ({ trigger }: { trigger: Animated.SharedValue<number> }) => {
+const ParticleBurst = ({ trigger }: { trigger: SharedValue<number> }) => {
   const particles = [
     { angle: 0, distance: 80, size: 6, color: COLORS.cyan },
     { angle: Math.PI * 0.33, distance: 100, size: 8, color: COLORS.red },
@@ -257,7 +258,7 @@ const RingPulse = ({
 }: {
   delay: number;
   maxRadius: number;
-  trigger: Animated.SharedValue<number>;
+  trigger: SharedValue<number>;
 }) => {
   const animStyle = useAnimatedStyle(() => {
     const size = interpolate(trigger.value, [0, 1], [0, maxRadius * 2]);
@@ -380,7 +381,7 @@ export default function AnimatedSplash({ onAnimationComplete }: AnimatedSplashPr
     taglineTranslateY.value = withDelay(1500, withSpring(0, { damping: 14, stiffness: 120 }));
 
     // 1800ms: Loading dots start pulsing
-    const dotPulse = (dot: Animated.SharedValue<number>, delay: number) => {
+    const dotPulse = (dot: SharedValue<number>, delay: number) => {
       dot.value = withDelay(
         1800 + delay,
         withRepeat(

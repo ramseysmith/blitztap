@@ -120,7 +120,7 @@ export default function SettingsScreen() {
           <View style={styles.settingInfo}>
             <Text style={styles.settingLabel}>Daily Reminders</Text>
             <Text style={styles.settingDescription}>
-              Get a nudge to claim your streak bonus when you've been away
+              Get a nudge to claim your streak bonus when you&apos;ve been away
             </Text>
           </View>
           <Switch
