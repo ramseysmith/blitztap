@@ -11,7 +11,10 @@ export interface ModeStats {
   highTier: number;
   totalScore: number;
   totalTimePlayed: number; // seconds
+  recentScores: number[]; // oldest first, capped at RECENT_SCORES_LIMIT
 }
+
+export const RECENT_SCORES_LIMIT = 20;
 
 const DEFAULT_MODE_STATS: ModeStats = {
   gamesPlayed: 0,
@@ -20,7 +23,16 @@ const DEFAULT_MODE_STATS: ModeStats = {
   highTier: 1,
   totalScore: 0,
   totalTimePlayed: 0,
+  recentScores: [],
 };
+
+function normalizeModeStats(raw: Partial<ModeStats> | undefined): ModeStats {
+  return {
+    ...DEFAULT_MODE_STATS,
+    ...raw,
+    recentScores: Array.isArray(raw?.recentScores) ? raw.recentScores : [],
+  };
+}
 
 export interface GameStats {
   // Per-mode stats
@@ -65,17 +77,16 @@ export async function getStats(): Promise<GameStats> {
     const migrated: GameStats = {
       ...DEFAULT_STATS,
       ...parsed,
-      classic: parsed.classic ?? {
-        ...DEFAULT_MODE_STATS,
+      classic: normalizeModeStats(parsed.classic ?? {
         gamesPlayed: parsed.totalGamesPlayed ?? 0,
         highScore: parsed.highScore ?? 0,
         highStreak: parsed.highStreak ?? 0,
         highTier: parsed.highTier ?? 1,
         totalScore: parsed.totalScoreSum ?? 0,
         totalTimePlayed: parsed.totalTimePlayed ?? 0,
-      },
-      timeAttack: parsed.timeAttack ?? { ...DEFAULT_MODE_STATS },
-      zen: parsed.zen ?? { ...DEFAULT_MODE_STATS },
+      }),
+      timeAttack: normalizeModeStats(parsed.timeAttack),
+      zen: normalizeModeStats(parsed.zen),
     };
     return migrated;
   } catch {
@@ -105,6 +116,7 @@ export async function recordGameResult(params: {
       highTier: Math.max(current[mode].highTier, params.tier),
       totalScore: current[mode].totalScore + params.score,
       totalTimePlayed: current[mode].totalTimePlayed + params.timePlayed,
+      recentScores: [...current[mode].recentScores, params.score].slice(-RECENT_SCORES_LIMIT),
     };
 
     const updated: GameStats = {

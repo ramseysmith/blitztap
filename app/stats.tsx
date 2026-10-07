@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../utils/colors';
 import { getStats, GameStats, getFavoriteShape, GameMode, ModeStats } from '../utils/stats';
+import { ScoreTrend } from '../components/ui/ScoreTrend';
 
 type TabId = 'overall' | GameMode;
 
@@ -134,6 +135,8 @@ function ModeStatsView({ modeStats, modeName }: { modeStats: ModeStats; modeName
         <StatCard label="Time Played" value={formatTime(Math.round(modeStats.totalTimePlayed))} />
         <StatCard label="Highest Tier" value={TIER_NAMES[modeStats.highTier] ?? '—'} />
       </View>
+
+      <ScoreTrend scores={modeStats.recentScores} />
     </>
   );
 }
