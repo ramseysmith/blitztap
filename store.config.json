@@ -1,0 +1,113 @@
+{
+  "configVersion": 0,
+  "apple": {
+    "version": "1.5.0",
+    "copyright": "Graysmith Inc.",
+    "release": {
+      "automaticRelease": true
+    },
+    "info": {
+      "en-US": {
+        "description": "How fast can you react?\nBlitzTap is a lightning fast shape matching game that tests your reflexes, focus, and pattern recognition. A target appears. A grid of shapes appears below. Tap the match before time runs out. Sounds simple? It gets faster. Much faster.\n\nFOUR DIFFICULTY TIERS\nStart with basic color matching on a small grid with a generous timer. As your score climbs, the challenge evolves. The grid expands. New shapes appear. Distractors multiply. The timer shrinks. By Tier 4, you're making split second decisions in a grid of 12 options with barely a second on the clock. Most players hover around Tier 2. Only the sharpest reach Chaos Mode.\n\nSTREAK MULTIPLIERS\nConsecutive correct taps build your streak. Hit 5 in a row for a 2x multiplier. 10 for 3x. 20 for a legendary 5x. One mistake resets everything. The pressure of protecting a long streak while the timer accelerates is what makes BlitzTap impossible to put down.\n\nSATISFYING FEEDBACK\nEvery correct tap delivers a punchy pop with haptic feedback. Every wrong tap shakes the screen and reveals what you should have tapped, teaching you for the next attempt. Tier transitions celebrate your progress. New high scores get the full treatment. Sound effects, animations, and haptics work together to make every moment feel alive.\n\nPERSONAL BEST TRACKING\nYour high score, longest streak, highest tier reached, total games played, and more are all tracked in a detailed stats screen. Watch your averages improve over time. Share your best scores with friends and challenge them to beat you.\n\nPLAY YOUR WAY\nToggle sound effects and haptic feedback independently. Respects your device silent switch. Supports Reduce Motion accessibility settings. Plays nicely alongside your music. Instant one tap restart means zero friction between attempts.\n\nFREE TO PLAY\nBlitzTap is completely free. Optional one time purchase to remove ads if you prefer an uninterrupted experience. No pay to win mechanics. No energy systems. No wait timers. Just pure reflex gameplay whenever you want it.\nQuick rounds. Deep replay value. One more try, every time.\n\nPrivacy Policy: https://ramseysmith.github.io/blitztap-site/privacy.html\nTerms of Use: https://ramseysmith.github.io/blitztap-site/eula.html",
+        "keywords": [
+          "reaction",
+          "reflex",
+          "speed",
+          "color",
+          "shape",
+          "match",
+          "brain",
+          "puzzle",
+          "tap",
+          "fast",
+          "quick",
+          "challenge",
+          "arcade",
+          "focus",
+          "timer"
+        ],
+        "releaseNotes": "Daily Streak Rewards are here!\n\n• Daily coin bonus — open BlitzTap each day to claim free coins. Keep your streak alive and the reward grows the longer you keep coming back!\n• Daily reminders — opt in to a friendly nudge so you never miss your streak bonus. Toggle it anytime in Settings.\n• Faster, smoother launch — we cleaned up the startup animation for a snappier, more polished open.\n• Fresh new look — sharpened up our lightning logo animation.\n• Bug fixes — your coin balance now updates instantly on the home screen, and we tidied up the layout. Thanks for playing!",
+        "marketingUrl": "https://ramseysmith.github.io/blitztap-site/",
+        "promoText": "New: log in daily to claim a streak bonus that grows every day you play! Plus reminders so you never miss it, a slicker launch, and bug fixes.",
+        "supportUrl": "https://ramseysmith.github.io/blitztap-site/support.html",
+        "title": "BlitzTap - Speed Challenge",
+        "subtitle": "Fast Reaction Color Challenge",
+        "privacyPolicyUrl": "https://ramseysmith.github.io/blitztap-site/privacy.html",
+        "screenshots": {
+          "APP_IPAD_PRO_3GEN_129": [
+            "store/apple/screenshot/en-US/APP_IPAD_PRO_3GEN_129/Simulator Screenshot - iPad Pro 13-inch (M4) - 2026-03-04 at 15.26.53.png",
+            "store/apple/screenshot/en-US/APP_IPAD_PRO_3GEN_129/Simulator Screenshot - iPad Pro 13-inch (M4) - 2026-03-04 at 15.26.37.png",
+            "store/apple/screenshot/en-US/APP_IPAD_PRO_3GEN_129/Simulator Screenshot - iPad Pro 13-inch (M4) - 2026-03-04 at 15.26.40.png",
+            "store/apple/screenshot/en-US/APP_IPAD_PRO_3GEN_129/Simulator Screenshot - iPad Pro 13-inch (M4) - 2026-03-04 at 15.26.42.png",
+            "store/apple/screenshot/en-US/APP_IPAD_PRO_3GEN_129/Simulator Screenshot - iPad Pro 13-inch (M4) - 2026-03-04 at 15.26.45.png",
+            "store/apple/screenshot/en-US/APP_IPAD_PRO_3GEN_129/Simulator Screenshot - iPad Pro 13-inch (M4) - 2026-03-04 at 15.27.05.png",
+            "store/apple/screenshot/en-US/APP_IPAD_PRO_3GEN_129/Simulator Screenshot - iPad Pro 13-inch (M4) - 2026-03-04 at 15.27.17.png",
+            "store/apple/screenshot/en-US/APP_IPAD_PRO_3GEN_129/Simulator Screenshot - iPad Pro 13-inch (M4) - 2026-03-04 at 15.27.51.png"
+          ],
+          "APP_IPHONE_67": [
+            "store/apple/screenshot/en-US/APP_IPHONE_67/Simulator Screenshot - iPhone 17 Pro Max - 2026-03-04 at 15.45.01.png",
+            "store/apple/screenshot/en-US/APP_IPHONE_67/Simulator Screenshot - iPhone 17 Pro Max - 2026-03-04 at 15.44.47.png",
+            "store/apple/screenshot/en-US/APP_IPHONE_67/Simulator Screenshot - iPhone 17 Pro Max - 2026-03-04 at 15.44.50.png",
+            "store/apple/screenshot/en-US/APP_IPHONE_67/Simulator Screenshot - iPhone 17 Pro Max - 2026-03-04 at 15.44.53.png",
+            "store/apple/screenshot/en-US/APP_IPHONE_67/Simulator Screenshot - iPhone 17 Pro Max - 2026-03-04 at 15.44.58.png",
+            "store/apple/screenshot/en-US/APP_IPHONE_67/Simulator Screenshot - iPhone 17 Pro Max - 2026-03-04 at 15.45.09.png",
+            "store/apple/screenshot/en-US/APP_IPHONE_67/Simulator Screenshot - iPhone 17 Pro Max - 2026-03-04 at 15.45.21.png",
+            "store/apple/screenshot/en-US/APP_IPHONE_67/Simulator Screenshot - iPhone 17 Pro Max - 2026-03-04 at 15.45.27.png"
+          ],
+          "APP_IPHONE_61": [
+            "store/apple/screenshot/en-US/APP_IPHONE_61/Simulator Screenshot - iPhone 17 - 2026-03-04 at 15.34.27.png",
+            "store/apple/screenshot/en-US/APP_IPHONE_61/Simulator Screenshot - iPhone 17 - 2026-03-04 at 15.34.32.png",
+            "store/apple/screenshot/en-US/APP_IPHONE_61/Simulator Screenshot - iPhone 17 - 2026-03-04 at 15.34.38.png",
+            "store/apple/screenshot/en-US/APP_IPHONE_61/Simulator Screenshot - iPhone 17 - 2026-03-04 at 15.34.45.png",
+            "store/apple/screenshot/en-US/APP_IPHONE_61/Simulator Screenshot - iPhone 17 - 2026-03-04 at 15.34.58.png",
+            "store/apple/screenshot/en-US/APP_IPHONE_61/Simulator Screenshot - iPhone 17 - 2026-03-04 at 15.35.12.png",
+            "store/apple/screenshot/en-US/APP_IPHONE_61/Simulator Screenshot - iPhone 17 - 2026-03-04 at 15.34.51.png",
+            "store/apple/screenshot/en-US/APP_IPHONE_61/Simulator Screenshot - iPhone 17 - 2026-03-04 at 15.34.23.png"
+          ]
+        }
+      }
+    },
+    "categories": [
+      [
+        "GAMES",
+        "GAMES_PUZZLE"
+      ]
+    ],
+    "advisory": {
+      "ageRatingOverride": "NONE",
+      "alcoholTobaccoOrDrugUseOrReferences": "NONE",
+      "contests": "NONE",
+      "gambling": false,
+      "gamblingSimulated": "NONE",
+      "horrorOrFearThemes": "NONE",
+      "kidsAgeBand": null,
+      "koreaAgeRatingOverride": "NONE",
+      "lootBox": false,
+      "matureOrSuggestiveThemes": "NONE",
+      "medicalOrTreatmentInformation": "NONE",
+      "profanityOrCrudeHumor": "NONE",
+      "sexualContentGraphicAndNudity": "NONE",
+      "sexualContentOrNudity": "NONE",
+      "unrestrictedWebAccess": false,
+      "violenceCartoonOrFantasy": "NONE",
+      "violenceRealistic": "NONE",
+      "violenceRealisticProlongedGraphicOrSadistic": "NONE",
+      "advertising": true,
+      "ageAssurance": false,
+      "ageRatingOverrideV2": "NONE",
+      "developerAgeRatingInfoUrl": null,
+      "gunsOrOtherWeapons": "NONE",
+      "healthOrWellnessTopics": false,
+      "messagingAndChat": false,
+      "parentalControls": false,
+      "userGeneratedContent": false
+    },
+    "review": {
+      "firstName": "Ramsey",
+      "lastName": "Graysmith",
+      "email": "smith.s.ramsey@gmail.com",
+      "phone": "7208226609",
+      "demoRequired": false
+    }
+  }
+}
